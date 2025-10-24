@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import traceback
-from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Type
+from typing import TYPE_CHECKING, Callable, Dict, Optional, Type
 
 if TYPE_CHECKING:  # pragma: no cover - for type checkers only
     from litestar import Request
@@ -30,9 +30,7 @@ def create_litestar_exception_handlers(
     default_locale: str = "en",
     response_format: ErrorResponseFormat = ErrorResponseFormat.RFC7807,
     problem_type_resolver: Optional[Callable[[AppError], str]] = None,
-    problem_extension_builder: Optional[
-        Callable[[AppError], Dict[str, object]]
-    ] = None,
+    problem_extension_builder: Optional[Callable[[AppError], Dict[str, object]]] = None,
     message_resolver: Optional[
         Callable[[AppError, Optional[str], Optional[ErrorTranslator]], str]
     ] = None,
@@ -53,10 +51,8 @@ def create_litestar_exception_handlers(
         problem_extension_builder=problem_extension_builder,
     )
 
-    from litestar import Request  # type: ignore
     from litestar.exceptions import HTTPException, ValidationException  # type: ignore
     from litestar.response import Response  # type: ignore
-    from litestar.types import ExceptionHandler  # type: ignore
 
     def resolve_message(error: AppError, locale: Optional[str]) -> str:
         if message_resolver:
@@ -119,9 +115,7 @@ def create_litestar_exception_handlers(
         }
         return handle_app_error(request, error)
 
-    def handle_http_exception(
-        request: "Request", exc: "HTTPException"
-    ) -> "Response":
+    def handle_http_exception(request: "Request", exc: "HTTPException") -> "Response":
         status_to_code = {
             400: ErrorCode.INVALID_INPUT,
             401: ErrorCode.AUTH_REQUIRED,

@@ -48,9 +48,7 @@ def error_detail_from_mapping(data: Mapping[str, Any]) -> ErrorDetail:
     timestamp = data.get("timestamp")
     if isinstance(timestamp, str):
         try:
-            timestamp = datetime.fromisoformat(
-                timestamp.replace("Z", "+00:00")
-            )
+            timestamp = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
         except ValueError:
             timestamp = _now_utc()
 

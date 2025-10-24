@@ -10,7 +10,7 @@
   "AUTH_TOKEN_EXPIRED": "Authentication token has expired",
   "AUTH_PERMISSION_DENIED": "Permission denied",
   "AUTH_INSUFFICIENT_PRIVILEGES": "Insufficient privileges",
-  "RESOURCE_NOT_FOUND": "{resource} not found",
+  "RESOURCE_NOT_FOUND": "Resource not found",
   "USER_NOT_FOUND": "User not found",
   "ENTITY_NOT_FOUND": "Entity not found",
   "DB_CONNECTION_ERROR": "Database connection error",

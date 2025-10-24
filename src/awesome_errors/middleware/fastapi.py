@@ -76,9 +76,7 @@ class ErrorHandlerMiddleware:
         self.app.add_exception_handler(SQLAlchemyError, self._handle_sqlalchemy_error)
         self.app.add_exception_handler(Exception, self._handle_generic_error)
 
-    async def _handle_app_error(
-        self, request: Request, exc: AppError
-    ) -> JSONResponse:
+    async def _handle_app_error(self, request: Request, exc: AppError) -> JSONResponse:
         locale = self._get_locale(request)
         translated_message = self._resolve_message(exc, locale)
 
@@ -224,9 +222,7 @@ def setup_error_handling(
     custom_translations: Optional[Dict[str, Dict[str, str]]] = None,
     response_format: ErrorResponseFormat = ErrorResponseFormat.LEGACY,
     problem_type_resolver: Optional[Callable[[AppError], str]] = None,
-    problem_extension_builder: Optional[
-        Callable[[AppError], Dict[str, object]]
-    ] = None,
+    problem_extension_builder: Optional[Callable[[AppError], Dict[str, object]]] = None,
     message_resolver: Optional[
         Callable[[AppError, Optional[str], Optional[ErrorTranslator]], str]
     ] = None,
@@ -249,4 +245,3 @@ def setup_error_handling(
             middleware.translator.add_translations(locale, translations, persist=False)
 
     return middleware
-

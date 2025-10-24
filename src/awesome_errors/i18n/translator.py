@@ -57,7 +57,7 @@ class ErrorTranslator:
             "AUTH_PERMISSION_DENIED": "Permission denied",
             "AUTH_INSUFFICIENT_PRIVILEGES": "Insufficient privileges",
             # Not found errors
-            "RESOURCE_NOT_FOUND": "{resource} not found",
+            "RESOURCE_NOT_FOUND": "Resource not found",
             "USER_NOT_FOUND": "User not found",
             "ENTITY_NOT_FOUND": "Entity not found",
             # Database errors
@@ -143,9 +143,7 @@ class ErrorTranslator:
             locale_dir.mkdir(exist_ok=True)
 
             with open(locale_dir / "errors.json", "w", encoding="utf-8") as f:
-                json.dump(
-                    self._translations[locale], f, indent=2, ensure_ascii=False
-                )
+                json.dump(self._translations[locale], f, indent=2, ensure_ascii=False)
 
     def get_available_locales(self) -> list[str]:
         """Get list of available locales."""

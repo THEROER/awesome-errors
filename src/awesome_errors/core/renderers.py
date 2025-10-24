@@ -42,7 +42,9 @@ class ErrorResponseRenderer:
         format: ErrorResponseFormat = ErrorResponseFormat.LEGACY,
         *,
         problem_type_resolver: Optional[Callable[[AppError], str]] = None,
-        problem_extension_builder: Optional[Callable[[AppError], Dict[str, Any]]] = None,
+        problem_extension_builder: Optional[
+            Callable[[AppError], Dict[str, Any]]
+        ] = None,
     ):
         self.format = format
         self._problem_type_resolver = problem_type_resolver
@@ -90,9 +92,9 @@ class ErrorResponseRenderer:
 
         payload: Dict[str, Any] = {
             "type": problem_type,
-            "title": message,
+            "title": error.message,
             "status": error.status_code,
-            "detail": error.message,
+            "detail": message,
             "instance": instance,
             "code": error.code.value,
             "timestamp": _isoformat(error.timestamp),

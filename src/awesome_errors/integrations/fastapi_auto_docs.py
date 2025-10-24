@@ -2,6 +2,7 @@
 FastAPI automatic error documentation integration.
 Automatically analyzes routes and adds error response schemas to OpenAPI docs.
 """
+
 import logging
 
 logger = logging.getLogger(__name__)
