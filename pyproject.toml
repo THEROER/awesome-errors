@@ -1,0 +1,27 @@
+[tool.poetry]
+name = "awesome-errors"
+version = "0.1.0"
+description = "A comprehensive error handling library for Python applications with i18n support"
+authors = ["THEROER <theroer09@gmail.com>"]
+readme = "README.md"
+packages = [{include = "awesome_errors", from = "src"}]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+pydantic = {version = "^2.0", extras = ["email"]}
+sqlalchemy = "^2.0"
+fastapi = "^0.115.14"
+awesome-serialization = {git = "https://github.com/mc-uaproject/awesome-serialization"}
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.0"
+pytest-cov = "^4.0"
+pytest-asyncio = "^0.21.0"
+black = "^23.0"
+mypy = "^1.0"
+ruff = "^0.1.0"
+httpx = "^0.24.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
