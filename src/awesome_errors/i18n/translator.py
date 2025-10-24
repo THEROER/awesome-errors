@@ -57,7 +57,7 @@ class ErrorTranslator:
             "AUTH_PERMISSION_DENIED": "Permission denied",
             "AUTH_INSUFFICIENT_PRIVILEGES": "Insufficient privileges",
             # Not found errors
-            "RESOURCE_NOT_FOUND": "Resource not found",
+            "RESOURCE_NOT_FOUND": "{resource} not found",
             "USER_NOT_FOUND": "User not found",
             "ENTITY_NOT_FOUND": "Entity not found",
             # Database errors
@@ -123,19 +123,29 @@ class ErrorTranslator:
             # Return unformatted message if formatting fails
             return message
 
-    def add_translations(self, locale: str, translations: Dict[str, str]) -> None:
-        """Add or update translations for a locale."""
+    def add_translations(
+        self, locale: str, translations: Dict[str, str], *, persist: bool = True
+    ) -> None:
+        """Add or update translations for a locale.
+
+        Args:
+            locale: Locale identifier
+            translations: Mapping of error codes to translated messages
+            persist: Persist changes to disk. Set to ``False`` for ephemeral usage.
+        """
         if locale not in self._translations:
             self._translations[locale] = {}
 
         self._translations[locale].update(translations)
 
-        # Save to file
-        locale_dir = self.locales_dir / locale
-        locale_dir.mkdir(exist_ok=True)
+        if persist:
+            locale_dir = self.locales_dir / locale
+            locale_dir.mkdir(exist_ok=True)
 
-        with open(locale_dir / "errors.json", "w", encoding="utf-8") as f:
-            json.dump(self._translations[locale], f, indent=2, ensure_ascii=False)
+            with open(locale_dir / "errors.json", "w", encoding="utf-8") as f:
+                json.dump(
+                    self._translations[locale], f, indent=2, ensure_ascii=False
+                )
 
     def get_available_locales(self) -> list[str]:
         """Get list of available locales."""

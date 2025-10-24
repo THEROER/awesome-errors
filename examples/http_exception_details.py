@@ -17,19 +17,19 @@ def get_user(user_id: int):
     if user_id == 404:
         raise HTTPException(
             status_code=404,
-            detail="User with ID 404 not found in the system",
+            detail="Користувача з ID 404 не знайдено в системі",
         )
 
     if user_id == 403:
         raise HTTPException(
             status_code=403,
-            detail="Access denied for user with ID 403",
+            detail="Доступ заборонено для користувача з ID 403",
         )
 
     if user_id == 400:
         raise HTTPException(
             status_code=400,
-            detail="Invalid user ID format",
+            detail="Невірний формат ID користувача",
         )
 
     return {"id": user_id, "name": "John Doe", "email": "john@example.com"}
@@ -41,7 +41,7 @@ def get_admin_user(user_id: int):
     if user_id == 999:
         raise HTTPException(
             status_code=418,
-            detail="I'm a teapot and can't process this request",
+            detail="Я чайник і не можу обробити цей запит",
         )
 
     return {"id": user_id, "role": "admin", "permissions": ["read", "write"]}

@@ -95,6 +95,18 @@ class TestCoreExceptions:
 
         assert error.code == ErrorCode.AUTH_REQUIRED
 
+    def test_auth_error_custom_status(self):
+        """AuthError allows custom codes and status codes."""
+
+        error = AuthError(
+            message="Session expired",
+            code=ErrorCode("SESSION_EXPIRED"),
+            status_code=401,
+        )
+
+        assert error.code == ErrorCode("SESSION_EXPIRED")
+        assert error.status_code == 401
+
     def test_not_found_error_creation(self):
         """Test NotFoundError creation."""
         error = NotFoundError(

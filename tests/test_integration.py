@@ -8,6 +8,7 @@ from awesome_errors import (
     ValidationError,
     AuthError,
     ErrorCode,
+    ErrorResponseFormat,
     openapi_errors,
     analyze_errors,
 )
@@ -111,6 +112,28 @@ class TestIntegration:
         error = error_data["error"]
         assert error["code"] == "AUTH_PERMISSION_DENIED"
         assert error["details"]["required_permission"] == "admin.users.read"
+
+    def test_problem_detail_response(self):
+        """Test RFC 7807 payload rendering."""
+
+        app = FastAPI()
+        setup_error_handling(app, response_format=ErrorResponseFormat.RFC7807)
+        client = TestClient(app)
+
+        @app.get("/problem")
+        def problem():
+            raise NotFoundError("user", 7)
+
+        response = client.get("/problem")
+        assert response.status_code == 404
+        assert response.headers["content-type"].startswith("application/problem+json")
+
+        payload = response.json()
+        assert payload["code"] == "RESOURCE_NOT_FOUND"
+        assert payload["title"].lower().startswith("user not found")
+        assert payload["details"]["resource_id"] == 7
+        assert payload["type"] == "about:blank"
+        assert "timestamp" in payload
 
     def test_custom_error_code_translation(self):
         """Test custom error code translation."""

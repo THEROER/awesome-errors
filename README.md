@@ -36,11 +36,15 @@ A comprehensive Python library for standardized error handling, analysis, and do
 - **analyze_errors**: Decorator for automatic error analysis
 - **openapi_errors**: Decorator for OpenAPI documentation
 
-#### 5. **FastAPI Integration** (`src/awesome_errors/integrations/`)
+#### 5. **HTTP Response Renderers** (`src/awesome_errors/core/renderers.py`)
 
-- **setup_automatic_error_docs**: Automatic OpenAPI documentation
-- **auto_analyze_errors**: Combined analysis + OpenAPI integration
-- **apply_auto_error_docs_to_router**: Router-specific documentation
+- **ErrorResponseRenderer**: Produces either legacy envelopes or RFC 7807 documents
+- **ErrorResponseFormat**: Toggle between response formats per application
+
+#### 6. **Framework Integrations** (`src/awesome_errors/middleware/`)
+
+- **FastAPI middleware**: `setup_error_handling`
+- **Litestar handlers**: `create_litestar_exception_handlers`
 
 #### 6. **Internationalization** (`src/awesome_errors/i18n/`)
 
@@ -99,6 +103,28 @@ def get_user(user_id: int):
     return {"id": user_id}
 ```
 
+### Litestar Integration
+
+```python
+from litestar import Litestar
+from awesome_errors import (
+    ErrorResponseFormat,
+    ErrorTranslator,
+    create_litestar_exception_handlers,
+)
+
+translator = ErrorTranslator(default_locale="en")
+translator.add_translations("en", {"CUSTOM": "Custom error"}, persist=False)
+
+exception_handlers = create_litestar_exception_handlers(
+    translator=translator,
+    response_format=ErrorResponseFormat.RFC7807,
+    problem_type_resolver=lambda err: f"urn:demo:error:{err.code.value.lower()}",
+)
+
+app = Litestar(route_handlers=[...], exception_handlers=exception_handlers)
+```
+
 ### Error Analysis
 
 ```python
@@ -118,8 +144,8 @@ def my_api_endpoint():
 
 ### ✅ **Unified Error Models**
 
-- Single `ErrorDetail` and `ErrorResponse` models used throughout
-- No duplicate model definitions
+- Lightweight msgspec structs used across server & client sides
+- Single serialization layer for legacy and RFC 7807 formats
 - Consistent error structure
 
 ### ✅ **Shared Generic Error Handling**
@@ -138,13 +164,14 @@ def my_api_endpoint():
 
 - Clear separation between server and client error handling
 - Modular converter system
-- Comprehensive documentation
+- Pluggable renderers for multiple frameworks
 
 ### ✅ **Internationalization Support**
 
 - Multi-language error messages
 - Locale-based translation
 - Template parameter support
+- Optional persistence when extending translations at runtime
 
 ## Installation
 

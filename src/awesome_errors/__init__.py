@@ -8,6 +8,7 @@ from .core.exceptions import (
 )
 from .core.error_codes import ErrorCode
 from .core.error_response import ErrorResponse, ErrorDetail
+from .core.renderers import ErrorResponseFormat, ErrorResponseRenderer
 from .converters import (
     SQLErrorConverter,
     PythonErrorConverter,
@@ -16,6 +17,7 @@ from .converters import (
 )
 from .i18n.translator import ErrorTranslator
 from .middleware.fastapi import setup_error_handling
+from .middleware.litestar import create_litestar_exception_handlers
 
 # Client utilities
 from .client import (
@@ -77,6 +79,8 @@ __all__ = [
     "ErrorCode",
     "ErrorResponse",
     "ErrorDetail",
+    "ErrorResponseFormat",
+    "ErrorResponseRenderer",
     # Converters
     "SQLErrorConverter",
     "PythonErrorConverter",
@@ -86,6 +90,7 @@ __all__ = [
     "ErrorTranslator",
     # Middleware
     "setup_error_handling",
+    "create_litestar_exception_handlers",
     # Client utilities
     "ErrorResponseParser",
     "BackendError",

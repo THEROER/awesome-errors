@@ -93,12 +93,13 @@ class AuthError(AppError):
         message: str,
         code: ErrorCode = ErrorCode.AUTH_REQUIRED,
         required_permission: Optional[str] = None,
+        status_code: Optional[int] = None,
     ):
         details = {}
         if required_permission:
             details["required_permission"] = required_permission
 
-        super().__init__(code, message, details)
+        super().__init__(code, message, details, status_code)
 
 
 class NotFoundError(AppError):

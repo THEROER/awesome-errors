@@ -1,7 +1,10 @@
-from typing import Dict, Any, Union, Optional
+from __future__ import annotations
+
 import json
+from typing import Any, Dict, Optional, Union
+
 from .exceptions import BackendError
-from ..core.error_response import ErrorResponse, ErrorDetail
+from ..core.error_response import ErrorDetail, error_detail_from_mapping
 
 
 class ErrorDetailMixin:
@@ -51,23 +54,40 @@ class ErrorResponseParser:
             ValueError: If response cannot be parsed
         """
         try:
-            # Parse response body
-            if isinstance(response_body, (str, bytes)):
-                data = json.loads(response_body)
-            else:
-                data = response_body
+            data = (
+                json.loads(response_body)
+                if isinstance(response_body, (str, bytes))
+                else response_body
+            )
 
-            # Validate and parse error response
-            error_response = ErrorResponse(**data)
+            if not isinstance(data, dict):
+                raise ValueError("Response body is not a JSON object")
 
-            # Create BackendError
+            detail_payload: Optional[Dict[str, Any]] = None
+            if cls.is_error_response(data):
+                error_block = data.get("error", {})
+                if isinstance(error_block, dict):
+                    detail_payload = dict(error_block)
+            elif cls.is_problem_response(data):
+                detail_payload = cls._problem_detail_to_error_payload(data)
+
+            if detail_payload is None:
+                raise ValueError("Unsupported error response shape")
+
+            request_id = detail_payload.get("request_id")
+            if not request_id:
+                request_id = headers.get("X-Request-ID") if headers else None
+                detail_payload["request_id"] = request_id or "unknown"
+
+            error_detail = error_detail_from_mapping(detail_payload)
+
             return BackendError(
-                error=error_response.error,
+                error=error_detail,
                 status_code=status_code,
                 response_headers=headers,
             )
 
-        except (json.JSONDecodeError, ValueError) as e:
+        except (json.JSONDecodeError, ValueError, TypeError) as e:
             # Fallback for non-standard error responses
             return cls._create_fallback_error(response_body, status_code, headers, e)
 
@@ -105,7 +125,6 @@ class ErrorResponseParser:
             code="UNKNOWN_ERROR",
             message=message,
             details=details,
-            timestamp=None,  # Will use default
             request_id=headers.get("X-Request-ID", "unknown") if headers else "unknown",
         )
 
@@ -125,3 +144,28 @@ class ErrorResponseParser:
             True if this is an error response
         """
         return "error" in response_data and isinstance(response_data.get("error"), dict)
+
+    @classmethod
+    def is_problem_response(cls, response_data: Dict[str, Any]) -> bool:
+        """Check whether the payload follows RFC 7807 conventions."""
+
+        required = {"type", "title", "status", "code"}
+        return required.issubset(response_data.keys())
+
+    @staticmethod
+    def _problem_detail_to_error_payload(data: Dict[str, Any]) -> Dict[str, Any]:
+        payload = {
+            "code": str(data.get("code", "UNKNOWN_ERROR")),
+            "message": data.get("title") or data.get("detail") or "Unknown error",
+            "request_id": data.get("request_id", ""),
+            "timestamp": data.get("timestamp"),
+            "details": dict(data.get("details") or {}),
+        }
+
+        # Carry over common meta fields into details for debugging purposes
+        details = payload["details"]
+        if "detail" in data and "explanation" not in details:
+            details.setdefault("detail", data.get("detail"))
+        if "instance" in data:
+            details.setdefault("instance", data.get("instance"))
+        return payload
