@@ -17,7 +17,10 @@ from .converters import (
 )
 from .i18n.translator import ErrorTranslator
 from .middleware.fastapi import setup_error_handling
-from .middleware.litestar import create_litestar_exception_handlers
+from .middleware.litestar import (
+    apply_litestar_openapi_problem_details,
+    create_litestar_exception_handlers,
+)
 
 # Client utilities
 from .client import (
@@ -91,6 +94,7 @@ __all__ = [
     # Middleware
     "setup_error_handling",
     "create_litestar_exception_handlers",
+    "apply_litestar_openapi_problem_details",
     # Client utilities
     "ErrorResponseParser",
     "BackendError",

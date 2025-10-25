@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import logging
 import traceback
-from typing import TYPE_CHECKING, Callable, Dict, Optional, Type
+from typing import TYPE_CHECKING, Callable, Dict, Mapping, Optional, Tuple, Type
 
-if TYPE_CHECKING:  # pragma: no cover - for type checkers only
+if TYPE_CHECKING:
     from litestar import Request
+    from litestar import Litestar
     from litestar.exceptions import HTTPException, ValidationException
     from litestar.response import Response
     from litestar.types import ExceptionHandler
@@ -17,6 +18,15 @@ from ..core.exceptions import AppError, ValidationError as CoreValidationError
 from ..core.renderers import ErrorResponseFormat, ErrorResponseRenderer, RenderResult
 from ..converters.sql_converter import SQLErrorConverter
 from ..i18n.translator import ErrorTranslator
+
+try:  # pragma: no cover - optional import guard
+    from litestar.openapi.spec.enums import OpenAPIType
+    from litestar.openapi.spec.media_type import OpenAPIMediaType
+    from litestar.openapi.spec.schema import Schema
+except ImportError:  # pragma: no cover
+    OpenAPIType = None  # type: ignore[assignment]
+    OpenAPIMediaType = None  # type: ignore[assignment]
+    Schema = None  # type: ignore[assignment]
 
 logger = logging.getLogger(__name__)
 
@@ -194,3 +204,117 @@ def _print_stacktrace(error_type: str, **kwargs: object) -> None:
     logger.error("Stacktrace:")
     traceback.print_exc(limit=30)
     logger.error(f"=== END {error_type} STACKTRACE ===\n")
+
+
+_DEFAULT_PROBLEM_DETAILS: Dict[int, Tuple[str, str, str]] = {
+    400: ("VALIDATION_FAILED", "Request validation failed", "Bad Request"),
+    401: ("AUTH_REQUIRED", "Authentication required", "Unauthorized"),
+    403: ("AUTH_PERMISSION_DENIED", "Access denied", "Forbidden"),
+    404: ("RESOURCE_NOT_FOUND", "Resource not found", "Not Found"),
+    409: ("DB_DUPLICATE_ENTRY", "Resource conflict", "Conflict"),
+    422: ("VALIDATION_FAILED", "Unprocessable entity", "Unprocessable Entity"),
+    429: ("RATE_LIMIT_EXCEEDED", "Too many requests", "Too Many Requests"),
+    500: ("INTERNAL_ERROR", "Internal server error", "Internal Server Error"),
+}
+
+
+def apply_litestar_openapi_problem_details(
+    app: "Litestar",
+    *,
+    service_name: str,
+    status_defaults: Optional[Mapping[int, Tuple[str, str, str]]] = None,
+    example_instance: str = "/docs/openapi.json",
+) -> None:
+    """Ensure generated OpenAPI documentation reflects RFC 7807 error payloads."""
+
+    if OpenAPIType is None or OpenAPIMediaType is None or Schema is None:  # pragma: no cover
+        raise ImportError("litestar must be installed to use this helper")
+
+    try:
+        schema = app.openapi_schema
+    except Exception:  # pragma: no cover - OpenAPI disabled or misconfigured
+        return
+
+    if not schema or not getattr(schema, "paths", None):
+        return
+
+    defaults = dict(_DEFAULT_PROBLEM_DETAILS)
+    if status_defaults:
+        defaults.update(status_defaults)
+
+    problem_schema = Schema(
+        type=OpenAPIType.OBJECT,
+        required=[
+            "type",
+            "title",
+            "status",
+            "detail",
+            "instance",
+            "code",
+            "timestamp",
+            "request_id",
+        ],
+        properties={
+            "type": Schema(type=OpenAPIType.STRING, format="uri"),
+            "title": Schema(type=OpenAPIType.STRING),
+            "status": Schema(type=OpenAPIType.INTEGER),
+            "detail": Schema(type=OpenAPIType.STRING),
+            "instance": Schema(type=OpenAPIType.STRING, format="uri"),
+            "code": Schema(type=OpenAPIType.STRING),
+            "timestamp": Schema(type=OpenAPIType.STRING, format="date-time"),
+            "request_id": Schema(type=OpenAPIType.STRING),
+            "service": Schema(type=OpenAPIType.STRING),
+            "details": Schema(type=OpenAPIType.OBJECT, additional_properties=True),
+        },
+        additional_properties=True,
+        description="RFC 7807 compatible error payload produced by awesome-errors.",
+    )
+
+    operations = ("delete", "get", "head", "options", "patch", "post", "put", "trace")
+
+    for path_item in schema.paths.values():
+        for operation_name in operations:
+            operation = getattr(path_item, operation_name, None)
+            if not operation or not getattr(operation, "responses", None):
+                continue
+
+            for status, response in operation.responses.items():
+                try:
+                    status_code = int(status)
+                except (TypeError, ValueError):
+                    continue
+
+                if status_code < 400:
+                    continue
+
+                error_code, detail, title = defaults.get(
+                    status_code,
+                    ("UNKNOWN_ERROR", "An unexpected error occurred", "Error"),
+                )
+
+                example_payload = {
+                    "type": f"urn:{service_name}:error:{error_code.lower()}",
+                    "title": title,
+                    "status": status_code,
+                    "detail": detail,
+                    "instance": example_instance,
+                    "code": error_code,
+                    "timestamp": "2024-01-08T12:00:00Z",
+                    "request_id": "req_example123",
+                    "service": service_name,
+                    "details": {"info": "Example payload"},
+                }
+
+                existing = getattr(response, "content", None) or {}
+                media_type = existing.get("application/problem+json")
+                if media_type:
+                    media_type.schema = problem_schema
+                    media_type.example = example_payload
+                    continue
+
+                response.content = {
+                    "application/problem+json": OpenAPIMediaType(
+                        schema=problem_schema,
+                        example=example_payload,
+                    )
+                }
