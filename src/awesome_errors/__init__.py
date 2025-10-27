@@ -16,7 +16,16 @@ from .converters import (
     UniversalErrorConverter,
 )
 from .i18n.translator import ErrorTranslator
-from .middleware.fastapi import setup_error_handling
+
+try:  # pragma: no cover - optional dependency
+    from .middleware.fastapi import setup_error_handling
+except ImportError:  # pragma: no cover
+
+    def setup_error_handling(*_args, **_kwargs):
+        raise ImportError(
+            "Install 'awesome-errors[fastapi]' to enable FastAPI middleware integration."
+        )
+
 from .middleware.litestar import (
     apply_litestar_openapi_problem_details,
     create_litestar_exception_handlers,
@@ -55,18 +64,34 @@ except ImportError:
 
 
 # WebSocket support
-from .websocket import (
-    WebSocketError,
-    JSONRPCErrorCode,
-    WebSocketAuthError,
-    WebSocketTokenExpiredError,
-    WebSocketRateLimitError,
-    WebSocketValidationError,
-    WebSocketMethodNotFoundError,
-    WebSocketInternalError,
-    WebSocketErrorHandler,
-    setup_websocket_error_handling,
-)
+try:  # pragma: no cover - optional dependency
+    from .websocket import (
+        WebSocketError,
+        JSONRPCErrorCode,
+        WebSocketAuthError,
+        WebSocketTokenExpiredError,
+        WebSocketRateLimitError,
+        WebSocketValidationError,
+        WebSocketMethodNotFoundError,
+        WebSocketInternalError,
+        WebSocketErrorHandler,
+        setup_websocket_error_handling,
+    )
+except ImportError:  # pragma: no cover
+    WebSocketError = None  # type: ignore[assignment]
+    JSONRPCErrorCode = None  # type: ignore[assignment]
+    WebSocketAuthError = None  # type: ignore[assignment]
+    WebSocketTokenExpiredError = None  # type: ignore[assignment]
+    WebSocketRateLimitError = None  # type: ignore[assignment]
+    WebSocketValidationError = None  # type: ignore[assignment]
+    WebSocketMethodNotFoundError = None  # type: ignore[assignment]
+    WebSocketInternalError = None  # type: ignore[assignment]
+    WebSocketErrorHandler = None  # type: ignore[assignment]
+
+    def setup_websocket_error_handling(*_args, **_kwargs):
+        raise ImportError(
+            "Install 'awesome-errors[fastapi]' to enable WebSocket error handling."
+        )
 
 __version__ = "0.1.0"
 

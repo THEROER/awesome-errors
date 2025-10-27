@@ -1,12 +1,21 @@
 from typing import Optional, Any
-from pydantic import ValidationError as PydanticValidationError
+
+try:  # pragma: no cover - optional dependency
+    from pydantic import ValidationError as PydanticValidationError
+except ImportError:  # pragma: no cover
+    PydanticValidationError = None  # type: ignore[assignment]
+
 from sqlalchemy.exc import SQLAlchemyError
 
 from ..core.exceptions import AppError
 from ..core.error_codes import ErrorCode
 from .sql_converter import SQLErrorConverter
 from .python_converter import PythonErrorConverter
-from .pydantic_converter import PydanticErrorConverter
+try:  # pragma: no cover - optional dependency
+    from .pydantic_converter import PydanticErrorConverter
+except ImportError:  # pragma: no cover
+    PydanticErrorConverter = None  # type: ignore[assignment]
+
 from .generic import generic_error_handler
 
 
@@ -30,7 +39,13 @@ class UniversalErrorConverter:
             return error
 
         # Pydantic validation errors
-        if isinstance(error, PydanticValidationError):
+        if PydanticValidationError is not None and isinstance(
+            error, PydanticValidationError
+        ):
+            if PydanticErrorConverter is None:
+                raise ImportError(
+                    "Install 'awesome-errors[pydantic]' to convert Pydantic validation errors."
+                ) from None
             return PydanticErrorConverter.convert(error)
 
         # SQLAlchemy errors
