@@ -119,9 +119,14 @@ def create_litestar_exception_handlers(
             message="Request validation failed",
             code=ErrorCode.VALIDATION_FAILED,
         )
+        errors = exc.extra or []
+        first_error = next(
+            (err for err in errors if isinstance(err, dict) and "path" in err),
+            None,
+        )
         error.details = {
-            "errors": exc.extra or [],
-            "path": exc.path,
+            "errors": errors,
+            "path": first_error.get("path") if first_error else None,
         }
         return handle_app_error(request, error)
 
