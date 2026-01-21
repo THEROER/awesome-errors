@@ -124,9 +124,12 @@ def create_litestar_exception_handlers(
             (err for err in errors if isinstance(err, dict) and "path" in err),
             None,
         )
+        path = first_error.get("path") if first_error else None
+        if path is None:
+            path = getattr(exc, "path", None)
         error.details = {
             "errors": errors,
-            "path": first_error.get("path") if first_error else None,
+            "path": path,
         }
         return handle_app_error(request, error)
 
