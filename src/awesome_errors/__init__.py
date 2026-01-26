@@ -50,6 +50,7 @@ except ImportError:  # pragma: no cover
             "Install 'awesome-errors[fastapi]' to enable FastAPI middleware integration."
         )
 
+
 from .middleware.litestar import (
     apply_litestar_openapi_problem_details,
     create_litestar_exception_handlers,
@@ -117,6 +118,7 @@ except ImportError:  # pragma: no cover
         raise ImportError(
             "Install 'awesome-errors[fastapi]' to enable WebSocket error handling."
         )
+
 
 __version__ = "0.1.0"
 

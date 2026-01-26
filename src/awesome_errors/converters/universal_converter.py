@@ -11,6 +11,7 @@ from ..core.exceptions import AppError
 from ..core.error_codes import ErrorCode
 from .sql_converter import SQLErrorConverter
 from .python_converter import PythonErrorConverter
+
 try:  # pragma: no cover - optional dependency
     from .pydantic_converter import PydanticErrorConverter
 except ImportError:  # pragma: no cover

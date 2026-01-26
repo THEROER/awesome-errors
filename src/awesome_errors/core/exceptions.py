@@ -1,8 +1,11 @@
-from typing import Any, ClassVar, Dict, Optional, Union
+from typing import Any, ClassVar, Dict, Optional, Union, TYPE_CHECKING
 from datetime import datetime, timezone
 import uuid
 
 from .error_codes import ErrorCode, get_http_status
+
+if TYPE_CHECKING:
+    from litestar.openapi.spec import ResponseSpec
 
 
 class AppError(Exception):
@@ -67,9 +70,7 @@ class APIError(AppError):
         status_code: Optional[int] = None,
     ):
         effective_code = code or self.code
-        effective_status = (
-            status_code if status_code is not None else self.status_code
-        )
+        effective_status = status_code if status_code is not None else self.status_code
         super().__init__(
             effective_code,
             message or self.title,
@@ -81,7 +82,9 @@ class APIError(AppError):
     def get_status_code(cls) -> int:
         if cls.status_code is not None:
             return cls.status_code
-        error_code = cls.code if isinstance(cls.code, ErrorCode) else ErrorCode(cls.code)
+        error_code = (
+            cls.code if isinstance(cls.code, ErrorCode) else ErrorCode(cls.code)
+        )
         return get_http_status(error_code)
 
     @classmethod
@@ -203,7 +206,11 @@ class AuthRequiredError(AuthError):
     def __init__(
         self, message: Optional[str] = None, required_permission: Optional[str] = None
     ):
-        super().__init__(message, code=self.code, required_permission=required_permission)
+        super().__init__(
+            message,
+            code=self.code,
+            required_permission=required_permission,
+        )
 
 
 class AuthInvalidTokenError(AuthError):
@@ -552,8 +559,14 @@ class InsufficientBalanceError(BusinessLogicError):
     title: ClassVar[str] = "Insufficient balance"
     description: ClassVar[str] = "Insufficient balance"
 
-    def __init__(self, message: Optional[str] = None, context: Optional[Dict[str, Any]] = None):
-        super().__init__(message or self.title, code=self.code, context=context)
+    def __init__(
+        self, message: Optional[str] = None, context: Optional[Dict[str, Any]] = None
+    ):
+        super().__init__(
+            message or self.title,
+            code=self.code,
+            context=context,
+        )
 
 
 class OperationNotAllowedError(BusinessLogicError):
@@ -563,5 +576,11 @@ class OperationNotAllowedError(BusinessLogicError):
     title: ClassVar[str] = "Operation not allowed"
     description: ClassVar[str] = "Operation not allowed"
 
-    def __init__(self, message: Optional[str] = None, context: Optional[Dict[str, Any]] = None):
-        super().__init__(message or self.title, code=self.code, context=context)
+    def __init__(
+        self, message: Optional[str] = None, context: Optional[Dict[str, Any]] = None
+    ):
+        super().__init__(
+            message or self.title,
+            code=self.code,
+            context=context,
+        )

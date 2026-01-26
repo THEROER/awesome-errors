@@ -36,7 +36,9 @@ def test_apply_litestar_openapi_problem_details() -> None:
     )
 
     schema = app.openapi_schema
-    schema.paths["/boom"].get.responses["404"] = OpenAPIResponse(description="Not Found")
+    schema.paths["/boom"].get.responses["404"] = OpenAPIResponse(
+        description="Not Found"
+    )
 
     apply_litestar_openapi_problem_details(app, service_name="test-service")
 

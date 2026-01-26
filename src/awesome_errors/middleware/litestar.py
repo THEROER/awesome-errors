@@ -91,9 +91,7 @@ def create_litestar_exception_handlers(
 
         if log_errors:
             if exc.code.value not in suppressed_codes:
-                level = (
-                    log_level_resolver(exc) if log_level_resolver else logging.ERROR
-                )
+                level = log_level_resolver(exc) if log_level_resolver else logging.ERROR
                 if level is not None:
                     logger.log(
                         level,
@@ -248,7 +246,9 @@ def apply_litestar_openapi_problem_details(
 ) -> None:
     """Ensure generated OpenAPI documentation reflects RFC 7807 error payloads."""
 
-    if OpenAPIType is None or OpenAPIMediaType is None or Schema is None:  # pragma: no cover
+    if (
+        OpenAPIType is None or OpenAPIMediaType is None or Schema is None
+    ):  # pragma: no cover
         raise ImportError("litestar must be installed to use this helper")
 
     try:

@@ -5,6 +5,7 @@ from .universal_converter import UniversalErrorConverter
 try:  # pragma: no cover - optional dependency
     from .pydantic_converter import PydanticErrorConverter
 except ImportError:  # pragma: no cover
+
     class PydanticErrorConverter:  # type: ignore[dead-code]
         """Placeholder raising a helpful message when pydantic is missing."""
 
@@ -13,6 +14,7 @@ except ImportError:  # pragma: no cover
             raise ImportError(
                 "Install 'awesome-errors[pydantic]' to enable Pydantic error conversions."
             )
+
 
 __all__ = [
     "SQLErrorConverter",
