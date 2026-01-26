@@ -36,6 +36,8 @@ def create_litestar_exception_handlers(
     translator: Optional[ErrorTranslator] = None,
     debug: bool = False,
     log_errors: bool = True,
+    log_level_resolver: Optional[Callable[[AppError], Optional[int]]] = None,
+    suppress_error_codes: Optional[Tuple[ErrorCode | str, ...]] = None,
     locales_dir: Optional[str] = None,
     default_locale: str = "en",
     response_format: ErrorResponseFormat = ErrorResponseFormat.RFC7807,
@@ -77,20 +79,31 @@ def create_litestar_exception_handlers(
             return error.message
         return translated
 
+    suppressed_codes = {
+        code.value if isinstance(code, ErrorCode) else str(code)
+        for code in (suppress_error_codes or ())
+    }
+
     def handle_app_error(request: "Request", exc: AppError) -> "Response":
         locale = request.headers.get("Accept-Language")
         if locale:
             locale = locale.split(",")[0].split("-")[0]
 
         if log_errors:
-            logger.error(
-                f"App error: {exc.code.value} - {exc.message}",
-                extra={
-                    "error_code": exc.code.value,
-                    "details": exc.details,
-                    "request_id": exc.request_id,
-                },
-            )
+            if exc.code.value not in suppressed_codes:
+                level = (
+                    log_level_resolver(exc) if log_level_resolver else logging.ERROR
+                )
+                if level is not None:
+                    logger.log(
+                        level,
+                        f"App error: {exc.code.value} - {exc.message}",
+                        extra={
+                            "error_code": exc.code.value,
+                            "details": exc.details,
+                            "request_id": exc.request_id,
+                        },
+                    )
 
         if exc.status_code >= 500:
             _print_stacktrace(

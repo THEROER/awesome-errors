@@ -1,10 +1,34 @@
 from .core.exceptions import (
     AppError,
+    APIError,
     ValidationError,
+    InvalidInputError,
+    MissingRequiredFieldError,
+    InvalidFormatError,
     AuthError,
+    AuthRequiredError,
+    AuthInvalidTokenError,
+    AuthTokenExpiredError,
+    AuthPermissionDeniedError,
+    AuthInsufficientPrivilegesError,
+    SessionExpiredError,
+    RefreshTokenReuseDetectedError,
     NotFoundError,
+    ResourceNotFoundError,
+    UserNotFoundError,
+    EntityNotFoundError,
+    OAuthProviderUnknownError,
     DatabaseError,
+    DatabaseConnectionError,
+    DatabaseQueryError,
+    DatabaseTransactionError,
+    DatabaseConstraintViolationError,
+    DatabaseDuplicateEntryError,
+    DatabaseInvalidReferenceError,
+    DatabaseMissingRequiredError,
     BusinessLogicError,
+    InsufficientBalanceError,
+    OperationNotAllowedError,
 )
 from .core.error_codes import ErrorCode
 from .core.error_response import ErrorResponse, ErrorDetail
@@ -30,6 +54,7 @@ from .middleware.litestar import (
     apply_litestar_openapi_problem_details,
     create_litestar_exception_handlers,
 )
+from .litestar_utils import apply_api_errors, errors, raises_from
 
 # Client utilities
 from .client import (
@@ -98,11 +123,35 @@ __version__ = "0.1.0"
 __all__ = [
     # Core exceptions
     "AppError",
+    "APIError",
     "ValidationError",
+    "InvalidInputError",
+    "MissingRequiredFieldError",
+    "InvalidFormatError",
     "AuthError",
+    "AuthRequiredError",
+    "AuthInvalidTokenError",
+    "AuthTokenExpiredError",
+    "AuthPermissionDeniedError",
+    "AuthInsufficientPrivilegesError",
+    "SessionExpiredError",
+    "RefreshTokenReuseDetectedError",
     "NotFoundError",
+    "ResourceNotFoundError",
+    "UserNotFoundError",
+    "EntityNotFoundError",
+    "OAuthProviderUnknownError",
     "DatabaseError",
+    "DatabaseConnectionError",
+    "DatabaseQueryError",
+    "DatabaseTransactionError",
+    "DatabaseConstraintViolationError",
+    "DatabaseDuplicateEntryError",
+    "DatabaseInvalidReferenceError",
+    "DatabaseMissingRequiredError",
     "BusinessLogicError",
+    "InsufficientBalanceError",
+    "OperationNotAllowedError",
     # Error codes and response models
     "ErrorCode",
     "ErrorResponse",
@@ -120,6 +169,9 @@ __all__ = [
     "setup_error_handling",
     "create_litestar_exception_handlers",
     "apply_litestar_openapi_problem_details",
+    "apply_api_errors",
+    "errors",
+    "raises_from",
     # Client utilities
     "ErrorResponseParser",
     "BackendError",
