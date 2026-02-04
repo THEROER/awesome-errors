@@ -5,7 +5,7 @@ import uuid
 from .error_codes import ErrorCode, get_http_status
 
 if TYPE_CHECKING:
-    from litestar.openapi.spec import ResponseSpec
+    from litestar.openapi.datastructures import ResponseSpec
 
 
 class AppError(Exception):
@@ -90,12 +90,13 @@ class APIError(AppError):
     @classmethod
     def openapi_response(cls) -> "ResponseSpec":  # type: ignore[name-defined]
         try:
-            from litestar.openapi.spec import ResponseSpec  # type: ignore
+            from litestar.openapi.datastructures import ResponseSpec  # type: ignore
         except ImportError as exc:  # pragma: no cover - optional dependency
             msg = "Litestar is required to build OpenAPI response specs"
             raise RuntimeError(msg) from exc
 
         return ResponseSpec(
+            data_container=None,
             description=cls.description,
             media_type=cls.response_media_type,
         )

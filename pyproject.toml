@@ -10,7 +10,7 @@ packages = [{include = "awesome_errors", from = "src"}]
 python = "^3.10"
 msgspec = "^0.19"
 sqlalchemy = "^2.0"
-litestar = "^2.17.0"
+litestar = "^2.19.0"
 fastapi = {version = "^0.115.14", optional = true}
 pydantic = {version = "^2.0", extras = ["email"], optional = true}
 

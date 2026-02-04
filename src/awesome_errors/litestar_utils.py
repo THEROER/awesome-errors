@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Dict, Iterable, Tuple, Type, TypeVar
+from typing import Iterable, Tuple, Type, TypeVar
 
 from .core.exceptions import APIError
 
 try:  # pragma: no cover - optional dependency
     from litestar.handlers.http_handlers import HTTPRouteHandler
-    from litestar.openapi.spec import ResponseSpec
+    from litestar.openapi.datastructures import ResponseSpec
 except ImportError:  # pragma: no cover
     HTTPRouteHandler = None  # type: ignore[assignment]
     ResponseSpec = None  # type: ignore[assignment]
@@ -16,12 +16,9 @@ except ImportError:  # pragma: no cover
 ErrorType = TypeVar("ErrorType", bound=APIError)
 
 
-def raises_from(*errors: Type[APIError]) -> Dict[int, "ResponseSpec"]:
-    """Build a Litestar raises mapping from APIError classes."""
-    if ResponseSpec is None:
-        msg = "Litestar is required to build raises mappings"
-        raise RuntimeError(msg)
-    return {error.get_status_code(): error.openapi_response() for error in errors}
+def raises_from(*errors: Type[APIError]) -> list[Type[APIError]]:
+    """Return a Litestar-compatible raises list from APIError classes."""
+    return list(errors)
 
 
 def errors(*errs: Type[APIError]):
@@ -29,8 +26,10 @@ def errors(*errs: Type[APIError]):
 
     def wrap(obj):
         if HTTPRouteHandler is not None and isinstance(obj, HTTPRouteHandler):
-            current = obj.raises or {}
-            obj.raises = {**current, **raises_from(*errs)}
+            current = obj.raises or []
+            if isinstance(current, dict):
+                current = []
+            obj.raises = [*list(current), *errs]
             return obj
         setattr(obj, "__api_errors__", errs)
         return obj
@@ -49,5 +48,7 @@ def apply_api_errors(handlers: Iterable[object]) -> None:
             )
             if not errs:
                 continue
-            current = handler.raises or {}
-            handler.raises = {**current, **raises_from(*errs)}
+            current = handler.raises or []
+            if isinstance(current, dict):
+                current = []
+            handler.raises = [*list(current), *errs]
