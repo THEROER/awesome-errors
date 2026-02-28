@@ -1,4 +1,4 @@
-from typing import List, Dict, Any
+from typing import Any, Dict, List, Mapping, Sequence
 from pydantic import ValidationError as PydanticValidationError
 
 from ..core.error_codes import ErrorCode
@@ -22,9 +22,9 @@ class PydanticErrorConverter:
         errors = error.errors()
 
         # Extract first error for main message
-        first_error = errors[0] if errors else {}
-        main_field = cls._get_field_path(first_error.get("loc", []))
-        main_message = first_error.get("msg", "Validation failed")
+        first_error: Mapping[str, Any] | None = errors[0] if errors else None
+        main_field = cls._get_field_path(first_error.get("loc", [])) if first_error else ""
+        main_message = first_error.get("msg", "Validation failed") if first_error else "Validation failed"
 
         # Build detailed error information
         field_errors = cls._build_field_errors(errors)
@@ -46,7 +46,9 @@ class PydanticErrorConverter:
         return validation_error
 
     @classmethod
-    def _build_field_errors(cls, errors: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def _build_field_errors(
+        cls, errors: Sequence[Mapping[str, Any]]
+    ) -> List[Dict[str, Any]]:
         """Build detailed field error information."""
         field_errors = []
 
@@ -68,6 +70,6 @@ class PydanticErrorConverter:
         return field_errors
 
     @classmethod
-    def _get_field_path(cls, loc: List[Any]) -> str:
+    def _get_field_path(cls, loc: Sequence[Any]) -> str:
         """Convert location list to field path string."""
         return ".".join(str(part) for part in loc) if loc else ""

@@ -1,5 +1,5 @@
 import functools
-from typing import Callable, Dict, Any, List, Optional, Set
+from typing import Any, Callable, Dict, List, Optional, Set, cast
 from ..analysis.error_analyzer import ErrorAnalyzer
 from ..core.error_codes import ErrorCode, ERROR_HTTP_STATUS_MAP
 
@@ -21,14 +21,14 @@ def analyze_errors(include_dependencies: bool = True):
         analysis = analyzer.analyze()
 
         # Attach analysis to function
-        func._error_analysis = analysis
+        setattr(func, "_error_analysis", analysis)
 
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             return func(*args, **kwargs)
 
         # Copy analysis to wrapper
-        wrapper._error_analysis = analysis
+        setattr(wrapper, "_error_analysis", analysis)
 
         return wrapper
 
@@ -74,16 +74,16 @@ def openapi_errors(
         )
 
         # Attach to function
-        func._openapi_error_responses = openapi_responses
-        func._error_analysis = analysis
+        setattr(func, "_openapi_error_responses", openapi_responses)
+        setattr(func, "_error_analysis", analysis)
 
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             return func(*args, **kwargs)
 
         # Copy to wrapper
-        wrapper._openapi_error_responses = openapi_responses
-        wrapper._error_analysis = analysis
+        setattr(wrapper, "_openapi_error_responses", openapi_responses)
+        setattr(wrapper, "_error_analysis", analysis)
 
         return wrapper
 
@@ -248,4 +248,4 @@ def _get_example_details(error_code: str) -> Dict[str, Any]:
         "AUTH_PERMISSION_DENIED": {"required_permission": "admin.users.delete"},
     }
 
-    return example_details.get(error_code, {})
+    return cast(Dict[str, Any], example_details.get(error_code, {}))

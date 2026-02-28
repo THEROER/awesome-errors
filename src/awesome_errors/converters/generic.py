@@ -5,7 +5,7 @@ from ..core.error_codes import ErrorCode
 def generic_error_handler(error: Exception, debug: bool = False) -> AppError:
     error_type = type(error).__name__
     error_module = type(error).__module__
-    details = {
+    details: dict[str, object] = {
         "error_type": error_type,
         "error_module": error_module,
     }

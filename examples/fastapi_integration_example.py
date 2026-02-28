@@ -23,7 +23,7 @@ setup_error_handling(app)
 error_integration = setup_fastapi_error_integration(app)
 
 
-# Method 1: @openapi_errors - полная автоматическая интеграция
+# Method 1: @openapi_errors - full automatic integration
 @openapi_errors(
     custom_descriptions={
         "USER_NOT_FOUND": "User with specified ID was not found",
@@ -46,7 +46,7 @@ def get_user_openapi(user_id: int):
     return {"id": user_id, "name": "John Doe"}
 
 
-# Method 2: @auto_analyze_errors - analyze_errors + автоинтеграция с OpenAPI
+# Method 2: @auto_analyze_errors - analyze_errors + auto OpenAPI integration
 @auto_analyze_errors
 @app.get("/posts/{post_id}")
 def get_post_auto(post_id: int):
@@ -64,7 +64,7 @@ def get_post_auto(post_id: int):
     return {"id": post_id, "title": "Sample Post"}
 
 
-# Method 3: @analyze_errors - только анализ, БЕЗ автоинтеграции с OpenAPI
+# Method 3: @analyze_errors - analysis only, NO auto OpenAPI integration
 @analyze_errors()
 @app.get("/comments/{comment_id}")
 def get_comment_manual(comment_id: int):

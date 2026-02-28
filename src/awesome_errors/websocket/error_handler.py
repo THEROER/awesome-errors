@@ -6,6 +6,7 @@ import logging
 from typing import Dict, Any, Type, Callable, Optional
 from fastapi import FastAPI, WebSocket
 
+from awesome_errors.core.error_codes import ErrorCode
 from awesome_errors.core.exceptions import AppError
 from awesome_errors.websocket.exceptions import WebSocketError, WebSocketInternalError
 from starlette.websockets import WebSocketState
@@ -45,7 +46,7 @@ class WebSocketErrorHandler:
                 # JSON parsing
                 json.JSONDecodeError: {
                     "converter": lambda e: WebSocketError(
-                        code="PARSE_ERROR",
+                        code=ErrorCode.INVALID_FORMAT,
                         message="Invalid JSON",
                         ws_error_code=JSONRPCErrorCode.PARSE_ERROR,
                         request_id=None,

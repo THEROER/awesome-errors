@@ -5,9 +5,10 @@ This module provides WebSocket-specific error classes that integrate with
 the existing awesome-errors system while adding JSON-RPC 2.0 support.
 """
 
-from typing import Optional, Dict, Any
-from awesome_errors.core.exceptions import AppError
+from typing import Any, Dict, Optional
+
 from awesome_errors.core.error_codes import ErrorCode
+from awesome_errors.core.exceptions import AppError
 
 
 class JSONRPCErrorCode:
@@ -76,7 +77,7 @@ class WebSocketError(AppError):
             ErrorCode.AUTH_REQUIRED: JSONRPCErrorCode.AUTH_REQUIRED,
             ErrorCode.AUTH_PERMISSION_DENIED: JSONRPCErrorCode.AUTH_REQUIRED,
             ErrorCode.AUTH_TOKEN_EXPIRED: JSONRPCErrorCode.TOKEN_EXPIRED,
-            ErrorCode.AUTH_TOKEN_INVALID: JSONRPCErrorCode.AUTH_REQUIRED,
+            ErrorCode.AUTH_INVALID_TOKEN: JSONRPCErrorCode.AUTH_REQUIRED,
             # Validation errors
             ErrorCode.VALIDATION_FAILED: JSONRPCErrorCode.INVALID_PARAMS,
             ErrorCode.INVALID_INPUT: JSONRPCErrorCode.INVALID_PARAMS,
@@ -105,7 +106,7 @@ class WebSocketError(AppError):
 
         Returns a dictionary conforming to JSON-RPC 2.0 error object specification.
         """
-        error_data = None
+        error_data: Dict[str, Any] | None = None
 
         # Build error data if we have details or metadata
         if self.details or self.request_id:
@@ -200,7 +201,11 @@ class WebSocketRateLimitError(WebSocketError):
         limit: Optional[int] = None,
         window: Optional[int] = None,
     ):
-        details = {"retry_after": retry_after, "limit": limit, "window": window}
+        details: Dict[str, Any] = {
+            "retry_after": retry_after,
+            "limit": limit,
+            "window": window,
+        }
 
         super().__init__(
             code=ErrorCode.RATE_LIMIT_EXCEEDED,
@@ -218,10 +223,10 @@ class WebSocketValidationError(WebSocketError):
     def __init__(
         self,
         message: str,
-        validation_errors: Optional[list] = None,
+        validation_errors: Optional[list[Any]] = None,
         request_id: Optional[str] = None,
     ):
-        details = {}
+        details: Dict[str, Any] = {}
         if validation_errors:
             details["validation_errors"] = validation_errors
 
@@ -242,9 +247,9 @@ class WebSocketMethodNotFoundError(WebSocketError):
         self,
         method: str,
         request_id: Optional[str] = None,
-        available_methods: Optional[list] = None,
+        available_methods: Optional[list[str]] = None,
     ):
-        details = {"method": method}
+        details: Dict[str, Any] = {"method": method}
         if available_methods:
             details["available_methods"] = available_methods
 
@@ -267,7 +272,7 @@ class WebSocketInternalError(WebSocketError):
         request_id: Optional[str] = None,
         original_error: Optional[str] = None,
     ):
-        details = {}
+        details: Dict[str, Any] = {}
         if original_error:
             details["original_error"] = str(original_error)
 

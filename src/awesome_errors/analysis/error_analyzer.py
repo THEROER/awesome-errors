@@ -170,7 +170,7 @@ class ErrorAnalyzer(ast.NodeVisitor):
     def _get_attr_chain(self, node: ast.Attribute) -> str:
         """Get full attribute chain like 'obj.method'."""
         parts = []
-        current = node
+        current: ast.AST = node
 
         while isinstance(current, ast.Attribute):
             parts.append(current.attr)
@@ -235,6 +235,7 @@ class ErrorAnalyzer(ast.NodeVisitor):
                         and keyword.value.func.id == "ErrorCode"
                         and keyword.value.args
                         and isinstance(keyword.value.args[0], ast.Constant)
+                        and isinstance(keyword.value.args[0].value, str)
                     ):
                         return keyword.value.args[0].value
                 return "UNKNOWN_ERROR"
@@ -248,7 +249,7 @@ class ErrorAnalyzer(ast.NodeVisitor):
 
         # Default based on exception type
         func_name = self._get_function_name(node.func)
-        return self._get_default_error_code(func_name)
+        return self._get_default_error_code(func_name or "unknown")
 
     def _extract_error_message(self, node: ast.Call) -> str:
         """Extract error message from exception constructor."""

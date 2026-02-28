@@ -183,13 +183,13 @@ pip install awesome-errors
 
 ```bash
 # Install dependencies
-poetry install
+uv sync --dev
 
 # Run tests
-pytest
+uv run pytest
 
 # Run linting
-ruff check src/
+uv run ruff check src/
 ```
 
 ## Contributing

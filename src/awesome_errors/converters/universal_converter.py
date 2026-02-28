@@ -1,23 +1,28 @@
-from typing import Optional, Any
-
-try:  # pragma: no cover - optional dependency
-    from pydantic import ValidationError as PydanticValidationError
-except ImportError:  # pragma: no cover
-    PydanticValidationError = None  # type: ignore[assignment]
+from typing import Any, Optional
 
 from sqlalchemy.exc import SQLAlchemyError
 
-from ..core.exceptions import AppError
 from ..core.error_codes import ErrorCode
-from .sql_converter import SQLErrorConverter
-from .python_converter import PythonErrorConverter
-
-try:  # pragma: no cover - optional dependency
-    from .pydantic_converter import PydanticErrorConverter
-except ImportError:  # pragma: no cover
-    PydanticErrorConverter = None  # type: ignore[assignment]
-
+from ..core.exceptions import AppError
 from .generic import generic_error_handler
+from .python_converter import PythonErrorConverter
+from .sql_converter import SQLErrorConverter
+
+PydanticValidationErrorType: type[Exception] | None = None
+try:  # pragma: no cover - optional dependency
+    from pydantic import ValidationError as _LoadedPydanticValidationError
+except ImportError:  # pragma: no cover
+    pass
+else:  # pragma: no cover
+    PydanticValidationErrorType = _LoadedPydanticValidationError
+
+_PydanticErrorConverter: Any = None
+try:  # pragma: no cover - optional dependency
+    from .pydantic_converter import PydanticErrorConverter as _LoadedPydanticErrorConverter
+except ImportError:  # pragma: no cover
+    pass
+else:  # pragma: no cover
+    _PydanticErrorConverter = _LoadedPydanticErrorConverter
 
 
 class UniversalErrorConverter:
@@ -40,14 +45,14 @@ class UniversalErrorConverter:
             return error
 
         # Pydantic validation errors
-        if PydanticValidationError is not None and isinstance(
-            error, PydanticValidationError
+        if PydanticValidationErrorType is not None and isinstance(
+            error, PydanticValidationErrorType
         ):
-            if PydanticErrorConverter is None:
+            if _PydanticErrorConverter is None:
                 raise ImportError(
                     "Install 'awesome-errors[pydantic]' to convert Pydantic validation errors."
                 ) from None
-            return PydanticErrorConverter.convert(error)
+            return _PydanticErrorConverter.convert(error)
 
         # SQLAlchemy errors
         if isinstance(error, SQLAlchemyError):

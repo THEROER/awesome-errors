@@ -1,32 +1,36 @@
 from __future__ import annotations
 
 import json
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Optional, Protocol, Union, cast
 
 from .exceptions import BackendError
 from ..core.error_response import ErrorDetail, error_detail_from_mapping
 
 
+class _HasDetails(Protocol):
+    details: Dict[str, Any]
+
+
 class ErrorDetailMixin:
     @property
-    def field(self):
-        return self.details.get("field")
+    def field(self) -> Any:
+        return cast(_HasDetails, self).details.get("field")
 
     @property
-    def field_errors(self):
-        return self.details.get("field_errors")
+    def field_errors(self) -> Any:
+        return cast(_HasDetails, self).details.get("field_errors")
 
     @property
-    def table(self):
-        return self.details.get("table")
+    def table(self) -> Any:
+        return cast(_HasDetails, self).details.get("table")
 
     @property
-    def constraint(self):
-        return self.details.get("constraint")
+    def constraint(self) -> Any:
+        return cast(_HasDetails, self).details.get("constraint")
 
     @property
-    def duplicate_value(self):
-        return self.details.get("duplicate_value")
+    def duplicate_value(self) -> Any:
+        return cast(_HasDetails, self).details.get("duplicate_value")
 
 
 class ErrorResponseParser:
@@ -102,7 +106,7 @@ class ErrorResponseParser:
         """Create fallback error when parsing fails."""
         # Try to extract message from response
         message = "Unknown error"
-        details = {
+        details: Dict[str, Any] = {
             "parse_error": str(parse_error),
             "response_type": type(response_body).__name__,
         }

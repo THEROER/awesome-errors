@@ -67,7 +67,7 @@ class ErrorResponseRenderer:
             message=message,
             details=error.details,
             timestamp=error.timestamp,
-            request_id=error.request_id,
+            request_id=error.request_id or "unknown",
         )
         envelope = ErrorResponse(error=detail)
         return RenderResult(payload=envelope.to_dict(), media_type="application/json")

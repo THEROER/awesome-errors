@@ -19,15 +19,6 @@ from ..core.renderers import ErrorResponseFormat, ErrorResponseRenderer, RenderR
 from ..converters.sql_converter import SQLErrorConverter
 from ..i18n.translator import ErrorTranslator
 
-try:  # pragma: no cover - optional import guard
-    from litestar.openapi.spec.enums import OpenAPIType
-    from litestar.openapi.spec.media_type import OpenAPIMediaType
-    from litestar.openapi.spec.schema import Schema
-except ImportError:  # pragma: no cover
-    OpenAPIType = None  # type: ignore[assignment]
-    OpenAPIMediaType = None  # type: ignore[assignment]
-    Schema = None  # type: ignore[assignment]
-
 logger = logging.getLogger(__name__)
 
 
@@ -120,7 +111,7 @@ def create_litestar_exception_handlers(
             content=rendered.payload,
             status_code=exc.status_code,
             media_type=rendered.media_type,
-            headers={"X-Request-ID": exc.request_id},
+            headers={"X-Request-ID": exc.request_id or "unknown"},
         )
 
     def handle_validation_error(
@@ -245,11 +236,12 @@ def apply_litestar_openapi_problem_details(
     example_instance: str = "/docs/openapi.json",
 ) -> None:
     """Ensure generated OpenAPI documentation reflects RFC 7807 error payloads."""
-
-    if (
-        OpenAPIType is None or OpenAPIMediaType is None or Schema is None
-    ):  # pragma: no cover
-        raise ImportError("litestar must be installed to use this helper")
+    try:  # pragma: no cover - optional dependency
+        from litestar.openapi.spec.enums import OpenAPIFormat, OpenAPIType
+        from litestar.openapi.spec.media_type import OpenAPIMediaType
+        from litestar.openapi.spec.schema import Schema
+    except ImportError as exc:  # pragma: no cover
+        raise ImportError("litestar must be installed to use this helper") from exc
 
     try:
         schema = app.openapi_schema
@@ -276,13 +268,13 @@ def apply_litestar_openapi_problem_details(
             "request_id",
         ],
         properties={
-            "type": Schema(type=OpenAPIType.STRING, format="uri"),
+            "type": Schema(type=OpenAPIType.STRING, format=OpenAPIFormat.URI),
             "title": Schema(type=OpenAPIType.STRING),
             "status": Schema(type=OpenAPIType.INTEGER),
             "detail": Schema(type=OpenAPIType.STRING),
-            "instance": Schema(type=OpenAPIType.STRING, format="uri"),
+            "instance": Schema(type=OpenAPIType.STRING, format=OpenAPIFormat.URI),
             "code": Schema(type=OpenAPIType.STRING),
-            "timestamp": Schema(type=OpenAPIType.STRING, format="date-time"),
+            "timestamp": Schema(type=OpenAPIType.STRING, format=OpenAPIFormat.DATE_TIME),
             "request_id": Schema(type=OpenAPIType.STRING),
             "service": Schema(type=OpenAPIType.STRING),
             "details": Schema(type=OpenAPIType.OBJECT, additional_properties=True),
@@ -293,7 +285,7 @@ def apply_litestar_openapi_problem_details(
 
     operations = ("delete", "get", "head", "options", "patch", "post", "put", "trace")
 
-    for path_item in schema.paths.values():
+    for path_item in (schema.paths or {}).values():
         for operation_name in operations:
             operation = getattr(path_item, operation_name, None)
             if not operation or not getattr(operation, "responses", None):

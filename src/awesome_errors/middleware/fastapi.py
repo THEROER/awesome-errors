@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import traceback
-from typing import Callable, Dict, Optional
+from typing import Any, Callable, Dict, Optional, cast
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import HTTPException, RequestValidationError
@@ -65,16 +65,16 @@ class ErrorHandlerMiddleware:
         self._register_handlers()
 
     def _register_handlers(self) -> None:
-        self.app.add_exception_handler(AppError, self._handle_app_error)
+        self.app.add_exception_handler(AppError, cast(Any, self._handle_app_error))
         self.app.add_exception_handler(
-            RequestValidationError, self._handle_validation_error
+            RequestValidationError, cast(Any, self._handle_validation_error)
         )
-        self.app.add_exception_handler(HTTPException, self._handle_http_exception)
+        self.app.add_exception_handler(HTTPException, cast(Any, self._handle_http_exception))
         self.app.add_exception_handler(
-            StarletteHTTPException, self._handle_http_exception
+            StarletteHTTPException, cast(Any, self._handle_http_exception)
         )
-        self.app.add_exception_handler(SQLAlchemyError, self._handle_sqlalchemy_error)
-        self.app.add_exception_handler(Exception, self._handle_generic_error)
+        self.app.add_exception_handler(SQLAlchemyError, cast(Any, self._handle_sqlalchemy_error))
+        self.app.add_exception_handler(Exception, cast(Any, self._handle_generic_error))
 
     async def _handle_app_error(self, request: Request, exc: AppError) -> JSONResponse:
         locale = self._get_locale(request)
@@ -107,7 +107,7 @@ class ErrorHandlerMiddleware:
             content=rendered.payload,
             status_code=exc.status_code,
             media_type=rendered.media_type,
-            headers={"X-Request-ID": exc.request_id},
+            headers={"X-Request-ID": exc.request_id or "unknown"},
         )
 
     async def _handle_validation_error(
