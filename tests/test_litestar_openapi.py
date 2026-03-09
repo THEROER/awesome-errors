@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any, cast
+
 from litestar import Litestar, get
 from litestar.openapi.config import OpenAPIConfig
 from litestar.openapi.spec.response import OpenAPIResponse
@@ -31,12 +33,17 @@ def test_apply_litestar_openapi_problem_details() -> None:
 
     app = Litestar(
         route_handlers=[boom],
-        exception_handlers=handlers,
+        exception_handlers=cast("Any", handlers),
         openapi_config=OpenAPIConfig(title="Test", version="1.0.0"),
     )
 
     schema = app.openapi_schema
-    schema.paths["/boom"].get.responses["404"] = OpenAPIResponse(
+    assert schema.paths is not None
+    path_item = schema.paths["/boom"]
+    operation = path_item.get
+    assert operation is not None
+    assert operation.responses is not None
+    operation.responses["404"] = OpenAPIResponse(
         description="Not Found"
     )
 
