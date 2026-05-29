@@ -6,7 +6,7 @@ authors = [{ name = "THEROER", email = "theroer09@gmail.com" }]
 readme = "README.md"
 requires-python = ">=3.10,<4"
 dependencies = [
-    "msgspec>=0.20.0,<0.21",
+    "msgspec>=0.21.0,<0.22",
     "sqlalchemy>=2.0,<3",
     "litestar>=2.21.1,<3",
 ]
