@@ -1,12 +1,18 @@
 from typing import Any, Optional
 
-from sqlalchemy.exc import SQLAlchemyError
-
 from ..core.error_codes import ErrorCode
 from ..core.exceptions import AppError
 from .generic import generic_error_handler
 from .python_converter import PythonErrorConverter
 from .sql_converter import SQLErrorConverter
+
+SQLAlchemyErrorType: type[Exception] | None = None
+try:  # pragma: no cover - optional dependency
+    from sqlalchemy.exc import SQLAlchemyError as _LoadedSQLAlchemyError
+except ImportError:  # pragma: no cover
+    pass
+else:  # pragma: no cover
+    SQLAlchemyErrorType = _LoadedSQLAlchemyError
 
 PydanticValidationErrorType: type[Exception] | None = None
 try:  # pragma: no cover - optional dependency
@@ -55,7 +61,7 @@ class UniversalErrorConverter:
             return _PydanticErrorConverter.convert(error)
 
         # SQLAlchemy errors
-        if isinstance(error, SQLAlchemyError):
+        if SQLAlchemyErrorType is not None and isinstance(error, SQLAlchemyErrorType):
             return SQLErrorConverter.convert(error)
 
         # Standard Python exceptions

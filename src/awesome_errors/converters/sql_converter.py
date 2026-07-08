@@ -1,12 +1,5 @@
 import re
-from typing import Dict, Optional, Tuple
-from sqlalchemy.exc import (
-    IntegrityError,
-    DataError,
-    OperationalError,
-    ProgrammingError,
-    DatabaseError as SQLAlchemyDatabaseError,
-)
+from typing import Any, Dict, Optional, Tuple
 
 from ..core.error_codes import ErrorCode
 from ..core.exceptions import DatabaseError
@@ -63,7 +56,20 @@ class SQLErrorConverter:
 
     @classmethod
     def convert(cls, error: Exception) -> DatabaseError:
-        """Convert SQLAlchemy error to DatabaseError."""
+        """Convert SQLAlchemy error to DatabaseError.
+
+        SQLAlchemy is imported lazily so the rest of the library can be used
+        without SQLAlchemy installed (install the ``sqlalchemy`` extra to use
+        this converter).
+        """
+        from sqlalchemy.exc import (
+            IntegrityError,
+            DataError,
+            OperationalError,
+            ProgrammingError,
+            DatabaseError as SQLAlchemyDatabaseError,
+        )
+
         if isinstance(error, IntegrityError):
             return cls._convert_integrity_error(error)
         elif isinstance(error, DataError):
@@ -80,7 +86,7 @@ class SQLErrorConverter:
             )
 
     @classmethod
-    def _convert_integrity_error(cls, error: IntegrityError) -> DatabaseError:
+    def _convert_integrity_error(cls, error: Any) -> DatabaseError:
         """Convert IntegrityError to DatabaseError with detailed field information."""
         error_str = str(error.orig) if error.orig else str(error)
 
@@ -135,7 +141,7 @@ class SQLErrorConverter:
         )
 
     @classmethod
-    def _convert_data_error(cls, error: DataError) -> DatabaseError:
+    def _convert_data_error(cls, error: Any) -> DatabaseError:
         """Convert DataError to DatabaseError."""
         return DatabaseError(
             message="Invalid data format",
@@ -144,7 +150,7 @@ class SQLErrorConverter:
         )
 
     @classmethod
-    def _convert_operational_error(cls, error: OperationalError) -> DatabaseError:
+    def _convert_operational_error(cls, error: Any) -> DatabaseError:
         """Convert OperationalError to DatabaseError."""
         error_str = str(error.orig) if error.orig else str(error)
 
@@ -162,7 +168,7 @@ class SQLErrorConverter:
         )
 
     @classmethod
-    def _convert_programming_error(cls, error: ProgrammingError) -> DatabaseError:
+    def _convert_programming_error(cls, error: Any) -> DatabaseError:
         """Convert ProgrammingError to DatabaseError."""
         return DatabaseError(
             message="Database programming error",
@@ -172,7 +178,7 @@ class SQLErrorConverter:
 
     @classmethod
     def _convert_generic_database_error(
-        cls, error: SQLAlchemyDatabaseError
+        cls, error: Any
     ) -> DatabaseError:
         """Convert generic DatabaseError to DatabaseError."""
         return DatabaseError(
