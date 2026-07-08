@@ -7,6 +7,7 @@ the existing awesome-errors system while adding JSON-RPC 2.0 support.
 
 from typing import Any, Dict, Optional
 
+from awesome_errors.core._utils import to_iso_z
 from awesome_errors.core.error_codes import ErrorCode
 from awesome_errors.core.exceptions import AppError
 
@@ -119,7 +120,7 @@ class WebSocketError(AppError):
             error_data["error_code"] = self.code.value
 
             # Include timestamp for debugging
-            error_data["timestamp"] = self.timestamp.isoformat() + "Z"
+            error_data["timestamp"] = to_iso_z(self.timestamp)
 
             # Include request ID if available
             if self.request_id:

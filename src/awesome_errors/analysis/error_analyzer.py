@@ -1,10 +1,22 @@
 import ast
 import inspect
+import textwrap
 from typing import Set, List, Dict, Any, Optional, Callable
 
 
 class ErrorAnalyzer(ast.NodeVisitor):
-    """AST analyzer to find all possible errors in a function."""
+    """AST analyzer that discovers the error codes a function may raise.
+
+    The analysis is static: it parses the function's own source (and its
+    decorators) looking for ``raise`` statements and well-known library call
+    patterns. It does not follow calls into other functions — resolving call
+    targets reliably requires runtime introspection that isn't available from
+    the AST alone.
+
+    ``max_depth`` and ``analyze_decorators`` are accepted for backwards
+    compatibility; ``max_depth`` currently has no effect since cross-function
+    recursion is not performed.
+    """
 
     def __init__(
         self, function: Callable, max_depth: int = 10, analyze_decorators: bool = True
@@ -14,16 +26,14 @@ class ErrorAnalyzer(ast.NodeVisitor):
 
         Args:
             function: Function to analyze
-            max_depth: Maximum depth for recursive analysis
+            max_depth: Retained for compatibility (no cross-function recursion)
             analyze_decorators: Whether to analyze decorators
         """
         self.function = function
         self.max_depth = max_depth
         self.analyze_decorators = analyze_decorators
-        self.current_depth = 0
         self.errors: Set[str] = set()
         self.error_details: List[Dict[str, Any]] = []
-        self.visited_functions: Set[str] = set()
         self.decorator_errors: List[Dict[str, Any]] = []
 
     def analyze(self) -> Dict[str, Any]:
@@ -33,64 +43,57 @@ class ErrorAnalyzer(ast.NodeVisitor):
         Returns:
             Dictionary with error analysis results
         """
-        # Reset state
+        # Reset state so an analyzer can be reused.
         self.errors.clear()
         self.error_details.clear()
-        self.visited_functions.clear()
         self.decorator_errors.clear()
-        self.current_depth = 0
 
-        # Analyze decorators first
         if self.analyze_decorators:
             self._analyze_decorators(self.function)
 
-        # Analyze the main function
-        self._analyze_function(self.function, is_main=True)
+        self._analyze_function(self.function)
 
         return {
-            "function_name": self.function.__name__,
-            "error_codes": sorted(list(self.errors)),
+            "function_name": getattr(self.function, "__name__", "<unknown>"),
+            "error_codes": sorted(self.errors),
             "error_details": self.error_details,
             "decorator_errors": self.decorator_errors,
             "total_errors": len(self.errors),
-            "analysis_depth": self.current_depth,
-            "max_depth_reached": self.current_depth >= self.max_depth,
+            "analysis_depth": 0,
+            "max_depth_reached": False,
         }
 
-    def _analyze_function(self, func: Callable, is_main: bool = False) -> None:
-        """Analyze a specific function for errors with depth control."""
-        if self.current_depth >= self.max_depth and not is_main:
+    @staticmethod
+    def _get_source(func: Callable) -> Optional[str]:
+        """Return the dedented source of ``func``, or ``None`` if unavailable.
+
+        Handles wrapped functions (``functools.wraps``) and environments where
+        ``inspect.getsource`` fails because the recorded filename can't be read.
+        """
+        target = inspect.unwrap(func)
+        for candidate in (target, func):
+            try:
+                return textwrap.dedent(inspect.getsource(candidate))
+            except (OSError, TypeError):
+                continue
+        return None
+
+    def _analyze_function(self, func: Callable) -> None:
+        """Parse a function's source and visit its AST for raised errors."""
+        source = self._get_source(func)
+        if source is None:
+            # Source unavailable (builtin/C function or unreadable file) — fall
+            # back to inferring errors from the callable's identity.
+            self._analyze_builtin_function(func)
             return
-
-        func_name = f"{func.__module__}.{func.__qualname__}"
-
-        # Avoid infinite recursion
-        if func_name in self.visited_functions:
-            return
-
-        self.visited_functions.add(func_name)
-
-        if not is_main:
-            self.current_depth += 1
 
         try:
-            # Get function source and parse AST
-            source = inspect.getsource(func)
-            # Remove leading indentation to avoid IndentationError
-            import textwrap
-
-            source = textwrap.dedent(source)
             tree = ast.parse(source)
-
-            # Visit AST nodes
-            self.visit(tree)
-
-        except (OSError, TypeError):
-            # Can't get source - try to infer common library errors
+        except SyntaxError:
             self._analyze_builtin_function(func)
+            return
 
-        if not is_main:
-            self.current_depth -= 1
+        self.visit(tree)
 
     def visit_Raise(self, node: ast.Raise) -> None:
         """Handle raise statements."""
@@ -103,20 +106,8 @@ class ErrorAnalyzer(ast.NodeVisitor):
         self.generic_visit(node)
 
     def visit_Call(self, node: ast.Call) -> None:
-        """Enhanced call analysis with context-aware error detection."""
-        # Analyze call context for known error patterns
+        """Detect known error-producing call patterns (ORM/validation)."""
         self._analyze_call_context(node)
-
-        # Handle method calls (obj.method())
-        if isinstance(node.func, ast.Attribute):
-            self._analyze_method_call(node)
-
-        # Handle regular function calls
-        else:
-            called_func = self._resolve_function_call(node)
-            if called_func and self.current_depth < self.max_depth:
-                self._analyze_function(called_func)
-
         self.generic_visit(node)
 
     def _analyze_call_context(self, node: ast.Call) -> None:
@@ -151,10 +142,6 @@ class ErrorAnalyzer(ast.NodeVisitor):
             ]
         ):
             self.errors.add("VALIDATION_FAILED")
-
-        # Async operations
-        elif "await " in call_str:
-            self.errors.update(["INTERNAL_ERROR", "TIMEOUT_ERROR"])
 
     def _get_call_string(self, node: ast.Call) -> str:
         """Get string representation of call for pattern matching."""
@@ -404,14 +391,6 @@ class ErrorAnalyzer(ast.NodeVisitor):
         except Exception:
             pass
 
-    def _analyze_method_call(self, node: ast.Call) -> None:
-        """Analyze method calls by trying to resolve and analyze the actual method."""
-        if isinstance(node.func, ast.Attribute):
-            # Try to resolve the actual method and analyze it
-            resolved_method = self._resolve_method_call(node)
-            if resolved_method and self.current_depth < self.max_depth:
-                self._analyze_function(resolved_method)
-
     def _analyze_builtin_function(self, func: Callable) -> None:
         """Analyze built-in functions for common error patterns using existing converters."""
         func_name = getattr(func, "__name__", str(func))
@@ -435,9 +414,9 @@ class ErrorAnalyzer(ast.NodeVisitor):
         from ..core.error_codes import ErrorCode
 
         # Get all possible error codes from SQL converter patterns
-        sql_error_codes = set()
-        for pattern, (code, message) in SQLErrorConverter.SQL_PATTERNS.items():
-            sql_error_codes.add(code.value)
+        sql_error_codes = {
+            code.value for code, _message in SQLErrorConverter.SQL_PATTERNS.values()
+        }
 
         # Add common SQLAlchemy errors based on existing converter
         sql_error_codes.update(
@@ -449,15 +428,3 @@ class ErrorAnalyzer(ast.NodeVisitor):
         )
 
         self.errors.update(sql_error_codes)
-
-    def _resolve_method_call(self, node: ast.Call) -> Optional[Callable]:
-        """Try to resolve method call to actual method object."""
-        # For now, return None but analyze based on context
-        # This is complex and would require runtime introspection
-        return None
-
-    def _resolve_function_call(self, node: ast.Call) -> Optional[Callable]:
-        """Try to resolve function call to actual function object."""
-        # For now, return None but analyze based on context
-        # This is complex and would require runtime introspection
-        return None

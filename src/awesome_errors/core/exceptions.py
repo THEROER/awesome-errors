@@ -1,7 +1,8 @@
 from typing import Any, ClassVar, Dict, Optional, Union, TYPE_CHECKING
-from datetime import datetime, timezone
+from datetime import datetime
 import uuid
 
+from ._utils import to_iso_z, utc_now
 from .error_codes import ErrorCode, get_http_status
 
 if TYPE_CHECKING:
@@ -41,7 +42,7 @@ class AppError(Exception):
         self.code = code if isinstance(code, ErrorCode) else ErrorCode(code)
         self.message = message
         self.details = details or {}
-        self.timestamp = datetime.now(timezone.utc)
+        self.timestamp = utc_now()
         self.request_id = str(uuid.uuid4())
 
         # Use provided status code or get from mapping
@@ -54,7 +55,7 @@ class AppError(Exception):
                 "code": self.code.value,
                 "message": self.message,
                 "details": self.details,
-                "timestamp": self.timestamp.isoformat() + "Z",
+                "timestamp": to_iso_z(self.timestamp),
                 "request_id": self.request_id,
             }
         }

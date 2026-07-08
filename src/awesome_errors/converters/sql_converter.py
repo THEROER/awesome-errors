@@ -128,9 +128,6 @@ class SQLErrorConverter:
                 elif code == ErrorCode.DB_INVALID_REFERENCE and field_name:
                     db_error.message = f"{message} in field: {field_name}"
 
-                if db_error.details.get("table"):
-                    db_error.details["table"] = db_error.details["table"]
-
                 return db_error
 
         # Default integrity error

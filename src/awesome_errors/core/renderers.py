@@ -7,18 +7,8 @@ from enum import StrEnum
 from typing import Any, Callable, Dict, Optional
 
 from ..core.exceptions import AppError
+from ._utils import to_iso_z
 from .error_response import ErrorDetail, ErrorResponse
-
-
-from datetime import timezone
-
-
-def _isoformat(dt):
-    if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
-    else:
-        dt = dt.astimezone(timezone.utc)
-    return dt.isoformat().replace("+00:00", "Z")
 
 
 class ErrorResponseFormat(StrEnum):
@@ -97,7 +87,7 @@ class ErrorResponseRenderer:
             "detail": message,
             "instance": instance,
             "code": error.code.value,
-            "timestamp": _isoformat(error.timestamp),
+            "timestamp": to_iso_z(error.timestamp),
             "request_id": error.request_id,
             "details": error.details,
         }

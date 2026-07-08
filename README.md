@@ -45,15 +45,14 @@ A comprehensive Python library for standardized error handling, analysis, and do
 
 - **FastAPI middleware**: `setup_error_handling`
 - **Litestar handlers**: `create_litestar_exception_handlers`
+- Both integrations share their translation, logging, and exception-mapping
+  logic via `middleware/_base.py`.
 
-#### 6. **Internationalization** (`src/awesome_errors/i18n/`)
+#### 7. **Internationalization** (`src/awesome_errors/i18n/`)
 
 - **ErrorTranslator**: Multi-language error message support
-- Locale files in `src/awesome_errors/i18n/locales/`
-
-#### 7. **Middleware** (`src/awesome_errors/middleware/`)
-
-- **setup_error_handling**: FastAPI error handling middleware
+- English defaults are built in; additional locales load from
+  `src/awesome_errors/i18n/locales/` (importing the library never writes to disk)
 
 ## Usage Examples
 

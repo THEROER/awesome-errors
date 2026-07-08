@@ -2,14 +2,12 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any, Dict, Mapping
 
 import msgspec
 
-
-def _now_utc() -> datetime:
-    return datetime.now(timezone.utc)
+from ._utils import to_iso_z, utc_now
 
 
 class ErrorDetail(msgspec.Struct, kw_only=True, omit_defaults=True):
@@ -19,18 +17,18 @@ class ErrorDetail(msgspec.Struct, kw_only=True, omit_defaults=True):
     message: str
     request_id: str
     details: Dict[str, Any] = msgspec.field(default_factory=dict)
-    timestamp: datetime = msgspec.field(default_factory=_now_utc)
+    timestamp: datetime = msgspec.field(default_factory=utc_now)
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to builtin types, ensuring ISO timestamps."""
         data = msgspec.to_builtins(self, builtin_types=None)
         timestamp = data.get("timestamp")
         if isinstance(timestamp, datetime):
-            data["timestamp"] = timestamp.isoformat().replace("+00:00", "Z")
+            data["timestamp"] = to_iso_z(timestamp)
         elif isinstance(timestamp, str):
             data["timestamp"] = timestamp
         else:
-            data["timestamp"] = _now_utc().isoformat().replace("+00:00", "Z")
+            data["timestamp"] = to_iso_z(utc_now())
         return data
 
 
@@ -50,12 +48,12 @@ def error_detail_from_mapping(data: Mapping[str, Any]) -> ErrorDetail:
         try:
             timestamp = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
         except ValueError:
-            timestamp = _now_utc()
+            timestamp = utc_now()
 
     return ErrorDetail(
         code=str(data.get("code", "UNKNOWN_ERROR")),
         message=str(data.get("message", "")),
         details=dict(data.get("details") or {}),
-        timestamp=timestamp if isinstance(timestamp, datetime) else _now_utc(),
+        timestamp=timestamp if isinstance(timestamp, datetime) else utc_now(),
         request_id=str(data.get("request_id", "")),
     )

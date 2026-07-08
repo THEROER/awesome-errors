@@ -1,6 +1,6 @@
 [project]
 name = "awesome-errors"
-version = "0.3.0"
+version = "0.4.0"
 description = "A comprehensive error handling library for Python applications with i18n support"
 authors = [{ name = "THEROER", email = "theroer09@gmail.com" }]
 readme = "README.md"

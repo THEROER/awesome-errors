@@ -1,4 +1,8 @@
-from typing import Any, Optional
+import json
+from typing import TYPE_CHECKING, Optional, cast
+
+if TYPE_CHECKING:
+    from pydantic import ValidationError as PydanticValidationError
 
 from ..core.error_codes import ErrorCode
 from ..core.exceptions import AppError
@@ -21,14 +25,6 @@ except ImportError:  # pragma: no cover
     pass
 else:  # pragma: no cover
     PydanticValidationErrorType = _LoadedPydanticValidationError
-
-_PydanticErrorConverter: Any = None
-try:  # pragma: no cover - optional dependency
-    from .pydantic_converter import PydanticErrorConverter as _LoadedPydanticErrorConverter
-except ImportError:  # pragma: no cover
-    pass
-else:  # pragma: no cover
-    _PydanticErrorConverter = _LoadedPydanticErrorConverter
 
 
 class UniversalErrorConverter:
@@ -54,11 +50,11 @@ class UniversalErrorConverter:
         if PydanticValidationErrorType is not None and isinstance(
             error, PydanticValidationErrorType
         ):
-            if _PydanticErrorConverter is None:
-                raise ImportError(
-                    "Install 'awesome-errors[pydantic]' to convert Pydantic validation errors."
-                ) from None
-            return _PydanticErrorConverter.convert(error)
+            from .pydantic_converter import PydanticErrorConverter
+
+            return PydanticErrorConverter.convert(
+                cast("PydanticValidationError", error)
+            )
 
         # SQLAlchemy errors
         if SQLAlchemyErrorType is not None and isinstance(error, SQLAlchemyErrorType):
@@ -78,11 +74,21 @@ class UniversalErrorConverter:
 
     @classmethod
     def _handle_special_cases(cls, error: Exception) -> Optional[AppError]:
-        """Handle special error cases."""
+        """Handle special error cases from the standard library and popular
+        third-party packages that are not covered by the dedicated converters."""
         error_type = type(error).__name__
         error_str = str(error)
 
-        # Handle HTTP-related errors
+        # JSON decode errors (subclass of ValueError; check before generic HTTP)
+        if isinstance(error, json.JSONDecodeError):
+            return AppError(
+                code=ErrorCode.INVALID_FORMAT,
+                message="Invalid JSON format",
+                details={"error_type": error_type, "error": error_str},
+            )
+
+        # HTTP client errors (requests/httpx/urllib) are matched by name so we
+        # don't have to import those optional packages just to identify them.
         if "HTTPError" in error_type:
             return AppError(
                 code=ErrorCode.INTERNAL_ERROR,
@@ -90,34 +96,15 @@ class UniversalErrorConverter:
                 details={"error_type": error_type, "error": error_str},
             )
 
-        # Handle JSON errors
-        if "JSONDecodeError" in error_type:
-            return AppError(
-                code=ErrorCode.INVALID_FORMAT,
-                message="Invalid JSON format",
-                details={"error_type": error_type, "error": error_str},
-            )
-
-        # Handle import errors
+        # Missing modules
         if isinstance(error, (ImportError, ModuleNotFoundError)):
             return AppError(
                 code=ErrorCode.INTERNAL_ERROR,
                 message="Missing required module",
                 details={
-                    "module": error.name if hasattr(error, "name") else "unknown",
+                    "module": getattr(error, "name", None) or "unknown",
                     "error": error_str,
                 },
             )
 
         return None
-
-    @staticmethod
-    def _is_serializable(value: Any) -> bool:
-        """Check if value can be safely serialized."""
-        try:
-            import json
-
-            json.dumps(value)
-            return True
-        except Exception:
-            return False

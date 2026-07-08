@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import traceback
 from typing import TYPE_CHECKING, Callable, Dict, Mapping, Optional, Tuple, Type
 
 if TYPE_CHECKING:
@@ -18,6 +17,7 @@ from ..core.exceptions import AppError, ValidationError as CoreValidationError
 from ..core.renderers import ErrorResponseFormat, ErrorResponseRenderer, RenderResult
 from ..converters.sql_converter import SQLErrorConverter
 from ..i18n.translator import ErrorTranslator
+from . import _base
 
 logger = logging.getLogger(__name__)
 
@@ -40,13 +40,9 @@ def create_litestar_exception_handlers(
 ) -> Dict[Type[Exception], "ExceptionHandler"]:
     """Return a mapping of exception handlers configured for Litestar."""
 
-    if translator is None:
-        from pathlib import Path
-
-        locales_path = Path(locales_dir) if locales_dir else None
-        translator = ErrorTranslator(
-            locales_dir=locales_path, default_locale=default_locale
-        )
+    translator = _base.resolve_translator(
+        translator, locales_dir=locales_dir, default_locale=default_locale
+    )
 
     renderer = ErrorResponseRenderer(
         format=response_format,
@@ -57,28 +53,15 @@ def create_litestar_exception_handlers(
     from litestar.exceptions import HTTPException, ValidationException  # type: ignore
     from litestar.response import Response  # type: ignore
 
-    def resolve_message(error: AppError, locale: Optional[str]) -> str:
-        if message_resolver:
-            return message_resolver(error, locale, translator)
-
-        translated = translator.translate(
-            error.code.value,
-            locale=locale,
-            params=error.details,
-        )
-        if translated == error.code.value:
-            return error.message
-        return translated
-
     suppressed_codes = {
         code.value if isinstance(code, ErrorCode) else str(code)
         for code in (suppress_error_codes or ())
     }
 
     def handle_app_error(request: "Request", exc: AppError) -> "Response":
-        locale = request.headers.get("Accept-Language")
-        if locale:
-            locale = locale.split(",")[0].split("-")[0]
+        locale = _base.locale_from_accept_language(
+            request.headers.get("Accept-Language")
+        )
 
         if log_errors:
             if exc.code.value not in suppressed_codes:
@@ -95,7 +78,8 @@ def create_litestar_exception_handlers(
                     )
 
         if exc.status_code >= 500:
-            _print_stacktrace(
+            _base.log_stacktrace(
+                logger,
                 "500 ERROR",
                 Error_Code=exc.code.value,
                 Message=exc.message,
@@ -104,7 +88,9 @@ def create_litestar_exception_handlers(
             )
 
         rendered: RenderResult = renderer.render(
-            exc, message=resolve_message(exc, locale), request=request
+            exc,
+            message=_base.resolve_message(exc, locale, translator, message_resolver),
+            request=request,
         )
 
         return Response(
@@ -136,15 +122,7 @@ def create_litestar_exception_handlers(
         return handle_app_error(request, error)
 
     def handle_http_exception(request: "Request", exc: "HTTPException") -> "Response":
-        status_to_code = {
-            400: ErrorCode.INVALID_INPUT,
-            401: ErrorCode.AUTH_REQUIRED,
-            403: ErrorCode.AUTH_PERMISSION_DENIED,
-            404: ErrorCode.RESOURCE_NOT_FOUND,
-            422: ErrorCode.VALIDATION_FAILED,
-        }
-
-        error_code = status_to_code.get(exc.status_code, ErrorCode.UNKNOWN_ERROR)
+        error_code = _base.error_code_for_status(exc.status_code)
         error = AppError(
             code=error_code,
             message=str(exc.detail or exc.extra or exc.__class__.__name__),
@@ -156,7 +134,8 @@ def create_litestar_exception_handlers(
         )
 
         if exc.status_code >= 500:
-            _print_stacktrace(
+            _base.log_stacktrace(
+                logger,
                 "500 HTTP ERROR",
                 HTTP_Status=exc.status_code,
                 Error_Code=error_code.value,
@@ -173,21 +152,14 @@ def create_litestar_exception_handlers(
         if log_errors:
             logger.exception("Unhandled exception")
 
-        _print_stacktrace(
+        _base.log_stacktrace(
+            logger,
             "UNHANDLED ERROR",
             Exception_Type=type(exc).__name__,
             Exception_Message=str(exc),
         )
 
-        error = AppError(
-            code=ErrorCode.INTERNAL_ERROR,
-            message="An internal error occurred" if not debug else str(exc),
-            status_code=500,
-        )
-
-        if debug:
-            error.details["traceback"] = traceback.format_exc()
-
+        error = _base.build_generic_error(exc, debug=debug)
         return handle_app_error(request, error)
 
     handlers: Dict[Type[Exception], "ExceptionHandler"] = {
@@ -197,23 +169,11 @@ def create_litestar_exception_handlers(
         Exception: handle_generic_error,
     }
 
-    try:
-        from sqlalchemy.exc import SQLAlchemyError  # type: ignore
-
-        handlers[SQLAlchemyError] = handle_sqlalchemy_error  # type: ignore
-    except Exception:  # pragma: no cover - SQLAlchemy already a dependency
-        pass
+    sqlalchemy_error = _base.load_sqlalchemy_base_error()
+    if sqlalchemy_error is not None:
+        handlers[sqlalchemy_error] = handle_sqlalchemy_error
 
     return handlers
-
-
-def _print_stacktrace(error_type: str, **kwargs: object) -> None:
-    logger.error(f"\n=== {error_type} STACKTRACE ===")
-    for key, value in kwargs.items():
-        logger.error(f"{key}: {value}")
-    logger.error("Stacktrace:")
-    traceback.print_exc(limit=30)
-    logger.error(f"=== END {error_type} STACKTRACE ===\n")
 
 
 _DEFAULT_PROBLEM_DETAILS: Dict[int, Tuple[str, str, str]] = {

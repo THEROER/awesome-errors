@@ -3,13 +3,11 @@
 from __future__ import annotations
 
 import logging
-import traceback
 from typing import Any, Callable, Dict, Optional, cast
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import HTTPException, RequestValidationError
 from fastapi.responses import JSONResponse
-from sqlalchemy.exc import SQLAlchemyError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from ..core.error_codes import ErrorCode
@@ -17,6 +15,7 @@ from ..core.exceptions import AppError, ValidationError
 from ..core.renderers import ErrorResponseFormat, ErrorResponseRenderer, RenderResult
 from ..converters.sql_converter import SQLErrorConverter
 from ..i18n.translator import ErrorTranslator
+from . import _base
 
 logger = logging.getLogger(__name__)
 
@@ -37,22 +36,12 @@ class ErrorHandlerMiddleware:
         problem_extension_builder: Optional[
             Callable[[AppError], Dict[str, object]]
         ] = None,
-        message_resolver: Optional[
-            Callable[[AppError, Optional[str], Optional[ErrorTranslator]], str]
-        ] = None,
+        message_resolver: Optional[_base.MessageResolver] = None,
     ) -> None:
         self.app = app
-
-        if translator is None:
-            from pathlib import Path
-
-            locales_path = Path(locales_dir) if locales_dir else None
-            self.translator = ErrorTranslator(
-                locales_dir=locales_path, default_locale=default_locale
-            )
-        else:
-            self.translator = translator
-
+        self.translator = _base.resolve_translator(
+            translator, locales_dir=locales_dir, default_locale=default_locale
+        )
         self.message_resolver = message_resolver
         self.debug = debug
         self.log_errors = log_errors
@@ -69,20 +58,34 @@ class ErrorHandlerMiddleware:
         self.app.add_exception_handler(
             RequestValidationError, cast(Any, self._handle_validation_error)
         )
-        self.app.add_exception_handler(HTTPException, cast(Any, self._handle_http_exception))
+        self.app.add_exception_handler(
+            HTTPException, cast(Any, self._handle_http_exception)
+        )
         self.app.add_exception_handler(
             StarletteHTTPException, cast(Any, self._handle_http_exception)
         )
-        self.app.add_exception_handler(SQLAlchemyError, cast(Any, self._handle_sqlalchemy_error))
+
+        sqlalchemy_error = _base.load_sqlalchemy_base_error()
+        if sqlalchemy_error is not None:
+            self.app.add_exception_handler(
+                sqlalchemy_error, cast(Any, self._handle_sqlalchemy_error)
+            )
+
         self.app.add_exception_handler(Exception, cast(Any, self._handle_generic_error))
 
     async def _handle_app_error(self, request: Request, exc: AppError) -> JSONResponse:
-        locale = self._get_locale(request)
-        translated_message = self._resolve_message(exc, locale)
+        locale = _base.locale_from_accept_language(
+            request.headers.get("Accept-Language")
+        )
+        message = _base.resolve_message(
+            exc, locale, self.translator, self.message_resolver
+        )
 
         if self.log_errors:
             logger.error(
-                f"App error: {exc.code.value} - {exc.message}",
+                "App error: %s - %s",
+                exc.code.value,
+                exc.message,
                 extra={
                     "error_code": exc.code.value,
                     "details": exc.details,
@@ -91,7 +94,8 @@ class ErrorHandlerMiddleware:
             )
 
         if exc.status_code >= 500:
-            self._print_stacktrace(
+            _base.log_stacktrace(
+                logger,
                 "500 ERROR",
                 Error_Code=exc.code.value,
                 Message=exc.message,
@@ -100,7 +104,7 @@ class ErrorHandlerMiddleware:
             )
 
         rendered: RenderResult = self.renderer.render(
-            exc, message=translated_message, request=request
+            exc, message=message, request=request
         )
 
         return JSONResponse(
@@ -113,50 +117,26 @@ class ErrorHandlerMiddleware:
     async def _handle_validation_error(
         self, request: Request, exc: RequestValidationError
     ) -> JSONResponse:
-        details = {"errors": exc.errors()}
-
         error = ValidationError(
             message="Request validation failed",
             code=ErrorCode.VALIDATION_FAILED,
         )
-        error.details = details
-
+        error.details = {"errors": exc.errors()}
         return await self._handle_app_error(request, error)
 
     async def _handle_http_exception(
         self, request: Request, exc: HTTPException
     ) -> JSONResponse:
-        status_to_code = {
-            400: ErrorCode.INVALID_INPUT,
-            401: ErrorCode.AUTH_REQUIRED,
-            403: ErrorCode.AUTH_PERMISSION_DENIED,
-            404: ErrorCode.RESOURCE_NOT_FOUND,
-            422: ErrorCode.VALIDATION_FAILED,
-        }
-
-        error_code = status_to_code.get(exc.status_code, ErrorCode.UNKNOWN_ERROR)
-        details = {"http_detail": exc.detail}
-
         error = AppError(
-            code=error_code,
+            code=_base.error_code_for_status(exc.status_code),
             message=str(exc.detail),
             status_code=exc.status_code,
-            details=details,
+            details={"http_detail": exc.detail},
         )
-
-        if exc.status_code >= 500:
-            self._print_stacktrace(
-                "500 HTTP ERROR",
-                HTTP_Status=exc.status_code,
-                Error_Code=error_code.value,
-                Message=exc.detail,
-                Details=details,
-            )
-
         return await self._handle_app_error(request, error)
 
     async def _handle_sqlalchemy_error(
-        self, request: Request, exc: SQLAlchemyError
+        self, request: Request, exc: Exception
     ) -> JSONResponse:
         error = SQLErrorConverter.convert(exc)
         return await self._handle_app_error(request, error)
@@ -166,50 +146,14 @@ class ErrorHandlerMiddleware:
     ) -> JSONResponse:
         if self.log_errors:
             logger.exception("Unhandled exception")
-
-        self._print_stacktrace(
+        _base.log_stacktrace(
+            logger,
             "UNHANDLED ERROR",
             Exception_Type=type(exc).__name__,
             Exception_Message=str(exc),
         )
-
-        error = AppError(
-            code=ErrorCode.INTERNAL_ERROR,
-            message="An internal error occurred" if not self.debug else str(exc),
-            status_code=500,
-        )
-
-        if self.debug:
-            error.details["traceback"] = traceback.format_exc()
-
+        error = _base.build_generic_error(exc, debug=self.debug)
         return await self._handle_app_error(request, error)
-
-    def _get_locale(self, request: Request) -> Optional[str]:
-        accept_language = request.headers.get("Accept-Language", "")
-        if accept_language:
-            return accept_language.split(",")[0].split("-")[0]
-        return None
-
-    def _resolve_message(self, error: AppError, locale: Optional[str]) -> str:
-        if self.message_resolver:
-            return self.message_resolver(error, locale, self.translator)
-
-        translated = self.translator.translate(
-            error.code.value,
-            locale=locale,
-            params=error.details,
-        )
-        if translated == error.code.value:
-            return error.message
-        return translated
-
-    def _print_stacktrace(self, error_type: str, **kwargs: object) -> None:
-        logger.error(f"\n=== {error_type} STACKTRACE ===")
-        for key, value in kwargs.items():
-            logger.error(f"{key}: {value}")
-        logger.error("Stacktrace:")
-        traceback.print_exc(limit=30)
-        logger.error(f"=== END {error_type} STACKTRACE ===\n")
 
 
 def setup_error_handling(
@@ -223,9 +167,7 @@ def setup_error_handling(
     response_format: ErrorResponseFormat = ErrorResponseFormat.LEGACY,
     problem_type_resolver: Optional[Callable[[AppError], str]] = None,
     problem_extension_builder: Optional[Callable[[AppError], Dict[str, object]]] = None,
-    message_resolver: Optional[
-        Callable[[AppError, Optional[str], Optional[ErrorTranslator]], str]
-    ] = None,
+    message_resolver: Optional[_base.MessageResolver] = None,
 ) -> ErrorHandlerMiddleware:
     middleware = ErrorHandlerMiddleware(
         app=app,
