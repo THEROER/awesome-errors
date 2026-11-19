@@ -28,7 +28,7 @@ A comprehensive Python library for standardized error handling, analysis, and do
 - **SQLErrorConverter**: Converts SQLAlchemy errors
 - **PythonErrorConverter**: Converts standard Python exceptions
 - **PydanticErrorConverter**: Converts Pydantic validation errors
-- **generic_error_handler**: Shared logic for unknown errors
+- **generic_error_handler** (`awesome_errors.converters.generic`): Shared logic for unknown errors
 
 #### 4. **Analysis Tools** (`src/awesome_errors/analysis/`)
 
@@ -65,7 +65,7 @@ from awesome_errors import ValidationError, NotFoundError, ErrorCode
 raise ValidationError("Email is required", field="email")
 
 # Not found error
-raise NotFoundError("user", user_id=123)
+raise NotFoundError("user", resource_id=123)
 
 # Custom error code
 raise ValidationError("Invalid format", code=ErrorCode("CUSTOM_ERROR"))
@@ -89,7 +89,7 @@ except BackendError as e:
 
 ```python
 from fastapi import FastAPI
-from awesome_errors import setup_error_handling, auto_analyze_errors
+from awesome_errors import NotFoundError, auto_analyze_errors, setup_error_handling
 
 app = FastAPI()
 setup_error_handling(app)
@@ -127,7 +127,7 @@ app = Litestar(route_handlers=[...], exception_handlers=exception_handlers)
 ### Error Analysis
 
 ```python
-from awesome_errors import analyze_errors, openapi_errors
+from awesome_errors import ValidationError, analyze_errors, openapi_errors
 
 @analyze_errors()
 def my_function():
@@ -175,8 +175,10 @@ def my_api_endpoint():
 ## Installation
 
 ```bash
-pip install awesome-errors
+uv add "awesome-errors @ git+https://github.com/THEROER/awesome-errors"
 ```
+
+Optional extras: `sqlalchemy`, `litestar`, `fastapi`, `pydantic`, `all`.
 
 ## Development
 
